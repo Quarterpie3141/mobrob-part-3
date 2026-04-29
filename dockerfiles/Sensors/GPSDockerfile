@@ -8,19 +8,21 @@ RUN dpkg -i /tmp/ros2-apt-source.deb
 
 RUN apt-get update
 
-RUN apt-get install -y ros-jazzy-ros-base ros-jazzy-tf-transformations ros-jazzy-rmw-cyclonedds-cpp python3-colcon-common-extensions
+RUN apt-get install -y ros-jazzy-ros-base ros-jazzy-rmw-cyclonedds-cpp ros-jazzy-nmea-navsat-driver python3-colcon-common-extensions python3-pip libusb-1.0-0-dev
 
 RUN rm -rf /var/lib/apt/lists/* /tmp/ros2-apt-source.deb
 
+RUN apt-get update
+
 RUN echo "source /opt/ros/jazzy/setup.bash" >> ~/.bashrc
 
-# Setup a minimal workspace that only contains the basic_drive package.
+# Setup a minimal workspace that only contains the sensor packages.
 WORKDIR /opt/ros2ws
 RUN mkdir -p /opt/ros2ws/src
+COPY ros2ws/src/ekf_pkg /opt/ros2ws/src/ekf_pkg
 
-COPY ros2ws/src/basic_drive /opt/ros2ws/src/basic_drive
-
-RUN source /opt/ros/jazzy/setup.bash && colcon build --packages-select basic_drive
+# Build only the packages needed for the combined launch.
+RUN source /opt/ros/jazzy/setup.bash && colcon build --packages-select ekf_pkg
 
 RUN echo "source /opt/ros2ws/install/setup.bash" >> ~/.bashrc
 
@@ -29,4 +31,5 @@ ENV ROS_DOMAIN_ID=8
 ENV RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
 ENV CYCLONEDDS_URI="<CycloneDDS><Domain><General><Interfaces><NetworkInterface name=\"wlp0s20f3\"/></Interfaces></General></Domain></CycloneDDS>"
 
-CMD ["bash", "-lc", "source /opt/ros/jazzy/setup.bash && source /opt/ros2ws/install/setup.bash && ros2 run basic_drive basic_drive"]
+# Start the combined IMU + EKF + lidar + raw GPS launch file when the container runs.
+CMD ["bash", "-lc", "source /opt/ros/jazzy/setup.bash && source /opt/ros2ws/install/setup.bash && ros2 launch ekf_pkg launch_GPS.py"]

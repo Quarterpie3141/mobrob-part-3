@@ -1,29 +1,20 @@
 FROM ubuntu:24.04
 
-ENV DEBIAN_FRONTEND=noninteractive
-ENV ROS_DOMAIN_ID=8
-ENV RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
-ENV CYCLONEDDS_URI="<CycloneDDS><Domain><General><Interfaces><NetworkInterface name=\"wlp0s20f3\"/></Interfaces></General></Domain></CycloneDDS>"
+RUN apt-get update && apt-get install -y software-properties-common curl git 
+	
+RUN apt-get update && apt-get install build-essential make g++
+RUN apt-get update && apt-get install libboost-all-dev 
 
-RUN apt-get update && apt-get install -y \
-	software-properties-common \
-	curl \
-	git \
-	build-essential \
-	make \
-	g++ \
-	libboost-all-dev \
-	&& add-apt-repository universe \
-	&& curl -L -o /tmp/ros2-apt-source.deb "https://github.com/ros-infrastructure/ros-apt-source/releases/download/1.1.0/ros2-apt-source_1.1.0.$(. /etc/os-release && echo ${UBUNTU_CODENAME:-${VERSION_CODENAME}})_all.deb" \
-	&& dpkg -i /tmp/ros2-apt-source.deb \
-	&& apt-get update \
-	&& apt-get install -y \
-	ros-jazzy-ros-base \
-	ros-jazzy-rmw-cyclonedds-cpp \
-	python3-colcon-common-extensions \
-	&& rm -rf /var/lib/apt/lists/* /tmp/ros2-apt-source.deb
+RUN add-apt-repository universe
+RUN curl -L -o /tmp/ros2-apt-source.deb "https://github.com/ros-infrastructure/ros-apt-source/releases/download/1.1.0/ros2-apt-source_1.1.0.$(. /etc/os-release && echo ${UBUNTU_CODENAME:-${VERSION_CODENAME}})_all.deb"
+RUN dpkg -i /tmp/ros2-apt-source.deb
 
-SHELL ["/bin/bash", "-c"]
+RUN apt-get update
+
+RUN apt-get install -y ros-jazzy-ros-base ros-jazzy-rmw-cyclonedds-cpp python3-colcon-common-extensions
+
+RUN rm -rf /var/lib/apt/lists/* /tmp/ros2-apt-source.deb
+
 RUN echo "source /opt/ros/jazzy/setup.bash" >> ~/.bashrc
 
 # Install the native Aria library needed by rosaria2.
@@ -41,4 +32,9 @@ RUN source /opt/ros/jazzy/setup.bash && colcon build --packages-select rosaria2
 
 RUN echo "source /opt/ros2ws/install/setup.bash" >> ~/.bashrc
 
-CMD ["bash", "-lc", "source /opt/ros/jazzy/setup.bash && source /opt/ros2ws/install/setup.bash && ros2 run rosaria2 rosaria2_node --ros-args --log-level warn"]
+ENV DEBIAN_FRONTEND=noninteractive
+ENV ROS_DOMAIN_ID=8
+ENV RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
+ENV CYCLONEDDS_URI="<CycloneDDS><Domain><General><Interfaces><NetworkInterface name=\"wlp0s20f3\"/></Interfaces></General></Domain></CycloneDDS>"
+
+CMD ["bash", "-lc", "source /opt/ros/jazzy/setup.bash && source /opt/ros2ws/install/setup.bash && ros2 run rosaria2 rosaria2_node --ros-args --log-level critical"]
