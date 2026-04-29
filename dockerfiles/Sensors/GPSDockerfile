@@ -19,10 +19,10 @@ RUN echo "source /opt/ros/jazzy/setup.bash" >> ~/.bashrc
 # Setup a minimal workspace that only contains the sensor packages.
 WORKDIR /opt/ros2ws
 RUN mkdir -p /opt/ros2ws/src
-COPY ros2ws/src/ekf_pkg /opt/ros2ws/src/ekf_pkg
+COPY ros2ws/src/sensor_pkg /opt/ros2ws/src/sensor_pkg
 SHELL ["/bin/bash", "-c"]
 # Build only the packages needed for the combined launch.
-RUN source /opt/ros/jazzy/setup.bash && colcon build --packages-select ekf_pkg
+RUN source /opt/ros/jazzy/setup.bash && colcon build --packages-select sensor_pkg
 
 RUN echo "source /opt/ros2ws/install/setup.bash" >> ~/.bashrc
 
@@ -32,4 +32,4 @@ ENV RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
 ENV CYCLONEDDS_URI="<CycloneDDS><Domain><General><Interfaces><NetworkInterface name=\"wlp0s20f3\"/></Interfaces></General></Domain></CycloneDDS>"
 
 # Start the combined IMU + EKF + lidar + raw GPS launch file when the container runs.
-CMD ["bash", "-lc", "source /opt/ros/jazzy/setup.bash && source /opt/ros2ws/install/setup.bash && ros2 launch ekf_pkg launch_GPS.py"]
+CMD ["bash", "-lc", "source /opt/ros/jazzy/setup.bash && source /opt/ros2ws/install/setup.bash && ros2 launch sensor_pkg launch_GPS.py"]
