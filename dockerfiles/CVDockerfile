@@ -36,7 +36,7 @@ RUN apt install libusb-1.0-0-dev -y
 #depthai
 RUN python3 -m pip install depthai --break-system-packages
 
-RUN apt update && apt install -y python3-pip python3-venv
+RUN apt update && apt install python3-pip python3-venv -y
 
 RUN python3 -m venv /opt/venv --system-site-packages
 ENV PATH="/opt/venv/bin:$PATH"

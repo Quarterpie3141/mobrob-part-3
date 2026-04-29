@@ -8,7 +8,7 @@ RUN dpkg -i /tmp/ros2-apt-source.deb
 
 RUN apt-get update
 
-RUN apt-get install -y ros-jazzy-ros-base ros-jazzy-rmw-cyclonedds-cpp python3-colcon-common-extensions
+RUN apt-get install ros-jazzy-ros-base ros-jazzy-rmw-cyclonedds-cpp python3-colcon-common-extensions -y
 
 RUN rm -rf /var/lib/apt/lists/* /tmp/ros2-apt-source.deb
 
@@ -19,10 +19,10 @@ WORKDIR /opt/ros2ws
 RUN mkdir -p /opt/ros2ws/src
 
 COPY ros2ws/src/global_controller /opt/ros2ws/src/global_controller
-
-RUN source /opt/ros/jazzy/setup.bash && colcon build --packages-select global_controller
+SHELL ["/bin/bash", "-c"]
 
 RUN echo "source /opt/ros2ws/install/setup.bash" >> ~/.bashrc
+RUN source /opt/ros/jazzy/setup.bash && colcon build --packages-select global_controller
 
 ENV DEBIAN_FRONTEND=noninteractive
 ENV ROS_DOMAIN_ID=8
