@@ -41,4 +41,4 @@ RUN source /opt/ros/jazzy/setup.bash && colcon build --packages-select rosaria2
 
 RUN echo "source /opt/ros2ws/install/setup.bash" >> ~/.bashrc
 
-CMD ["bash", "-lc", "source /opt/ros/jazzy/setup.bash && source /opt/ros2ws/install/setup.bash && ros2 run rosaria2 rosaria2_node --ros-args --log-level warn"]
+CMD ["bash", "-lc", "source /opt/ros/jazzy/setup.bash && source /opt/ros2ws/install/setup.bash && ros2 run rosaria2 rosaria2_node --ros-args --log-level warn -r /pose:=/odom/wheels"]
