@@ -1,0 +1,14 @@
+services:
+  mobrob:
+    build:
+      context: ..
+      dockerfile: dockerfiles/CVDockerfile
+    pull_policy: build
+    command: /bin/bash
+    network_mode: host
+    stdin_open: true
+    tty: true
+    privileged: true
+    volumes:
+      - /dev:/dev
+      - /home/team8/Documents:/opt/ros2ws/src/cv/img

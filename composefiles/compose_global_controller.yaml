@@ -1,0 +1,13 @@
+services:
+  mobrob_global_controller:
+    build:
+      context: ..
+      dockerfile: dockerfiles/globalcontrollerDockerfile
+    pull_policy: build
+    network_mode: host
+    stdin_open: true
+    tty: true
+    privileged: true
+    restart: unless-stopped
+    volumes:
+      - /dev:/dev

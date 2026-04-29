@@ -1,0 +1,79 @@
+
+services:
+  mobrob_cv:
+    build:
+      context: .
+      dockerfile: dockerfiles/CVDockerfile
+    pull_policy: build
+    network_mode: host
+    stdin_open: true
+    tty: true
+    privileged: true
+    volumes:
+      - /dev:/dev
+      - /home/team8/Documents:/opt/ros2ws/src/cv/img
+
+  mobrob_sens:
+    build:
+      context: .
+      dockerfile: dockerfiles/sensDockerfile
+    pull_policy: build
+    logging:
+      driver: "none"
+    network_mode: host
+    stdin_open: true
+    tty: true
+    privileged: true
+    volumes:
+      - /dev:/dev
+
+  mobrob_aria:
+    build:
+      context: .
+      dockerfile: dockerfiles/ariaDockerfile
+    pull_policy: build
+    logging:
+      driver: "none"
+    network_mode: host
+    stdin_open: true
+    tty: true
+    privileged: true
+    volumes:
+      - /dev:/dev
+
+  mobrob_ctrl:
+    build:
+      context: .
+      dockerfile: dockerfiles/ctrlDockerfile
+    pull_policy: build
+    network_mode: host
+    stdin_open: true
+    tty: true
+    privileged: true
+    volumes:
+      - /dev:/dev
+
+  mobrob_basic_drive:
+    build:
+      context: .
+      dockerfile: dockerfiles/basicdriveDockerfile
+    pull_policy: build
+    network_mode: host
+    stdin_open: true
+    tty: true
+    privileged: true
+    volumes:
+      - /dev:/dev
+
+  mobrob_global_controller:
+    build:
+      context: .
+      dockerfile: dockerfiles/globalcontrollerDockerfile
+    pull_policy: build
+    network_mode: host
+    stdin_open: true
+    tty: true
+    privileged: true
+    restart: unless-stopped
+    volumes:
+      - /dev:/dev

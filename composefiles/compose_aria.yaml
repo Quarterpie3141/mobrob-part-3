@@ -1,0 +1,12 @@
+services:
+  mobrob:
+    build:
+      context: ..
+      dockerfile: dockerfiles/ariaDockerfile
+    pull_policy: build
+    network_mode: host
+    stdin_open: true
+    tty: true
+    privileged: true
+    volumes:
+      - /dev:/dev
