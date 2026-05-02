@@ -13,7 +13,7 @@ class DepthAIImuNode(Node):
         super().__init__("depthai_imu_node")
 
         # ROS2 publisher
-        self.imu_pub = self.create_publisher(Imu, "imu/data", 10)
+        self.imu_pub = self.create_publisher(Imu, "cam/imu/data", 10)
 
         # DepthAI v3 pipeline
         self.pipeline = dai.Pipeline()
