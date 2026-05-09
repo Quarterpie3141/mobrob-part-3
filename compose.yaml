@@ -115,9 +115,10 @@ slam:
     build:
       context: .
       dockerfile: dockerfiles/slamDockerfile
+    pull_policy: build
     network_mode: host
+    stdin_open: true
+    tty: true
     privileged: true
-    environment:
-      - ROS_DOMAIN_ID=8 # Ensure this matches your other containers
     volumes:
-      - ./ros2ws/src/slam_pkg:/opt/ros2ws/src/slam_pkg
+      - /dev:/dev
