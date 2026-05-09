@@ -1,6 +1,6 @@
 from setuptools import find_packages, setup
 
-package_name = 'global_controller'
+package_name = 'state_machine'
 
 setup(
     name=package_name,
@@ -15,7 +15,7 @@ setup(
     zip_safe=True,
     maintainer='cement',
     maintainer_email='tsuna@quarterpie.xyz',
-    description='Global mission controller state machine',
+    description='TODO: Package description',
     license='TODO: License declaration',
     extras_require={
         'test': [
@@ -24,7 +24,6 @@ setup(
     },
     entry_points={
         'console_scripts': [
-            'apollo = global_controller.apollo:main',
         ],
     },
 )
