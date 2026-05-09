@@ -110,3 +110,14 @@ services:
     privileged: true
     volumes:
       - /dev:/dev
+
+slam:
+    build:
+      context: .
+      dockerfile: dockerfiles/slamDockerfile
+    network_mode: host
+    privileged: true
+    environment:
+      - ROS_DOMAIN_ID=8 # Ensure this matches your other containers
+    volumes:
+      - ./ros2ws/src/slam_pkg:/opt/ros2ws/src/slam_pkg

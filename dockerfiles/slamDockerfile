@@ -1,0 +1,31 @@
+FROM ubuntu:24.04
+
+# Basic ROS 2 setup
+RUN apt-get update && apt-get install -y software-properties-common curl
+RUN add-apt-repository universe
+RUN curl -L -o /tmp/ros2-apt-source.deb "https://github.com/ros-infrastructure/ros-apt-source/releases/latest/download/ros2-apt-source.deb" \
+    && dpkg -i /tmp/ros2-apt-source.deb \
+    && apt-get update
+
+# Install SLAM Toolbox and DDS implementation
+RUN apt-get install -y \
+    ros-jazzy-ros-base \
+    ros-jazzy-slam-toolbox \
+    ros-jazzy-rmw-cyclonedds-cpp \
+    && rm -rf /var/lib/apt/lists/*
+
+# Environment setup - EXACT MATCH to ariaDockerfile
+ENV DEBIAN_FRONTEND=noninteractive
+ENV ROS_DOMAIN_ID=8
+ENV RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
+ENV CYCLONEDDS_URI="<CycloneDDS><Domain><General><Interfaces><NetworkInterface name=\"wlp0s20f3\"/></Interfaces></General></Domain></CycloneDDS>"
+
+WORKDIR /opt/ros2ws
+COPY ros2ws/src/slam_pkg /opt/ros2ws/src/slam_pkg
+
+# Build the package
+SHELL ["/bin/bash", "-c"]
+RUN source /opt/ros/jazzy/setup.bash && colcon build --packages-select slam_pkg
+
+# Start SLAM
+CMD ["bash", "-lc", "source /opt/ros/jazzy/setup.bash && source /opt/ros2ws/install/setup.bash && ros2 launch slam_pkg launch_SLAM.py"]
