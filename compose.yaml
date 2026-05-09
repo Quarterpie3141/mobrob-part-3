@@ -1,32 +1,4 @@
-
 services:
-  mobrob_cv:
-    build:
-      context: .
-      dockerfile: dockerfiles/CVDockerfile
-    pull_policy: build
-    network_mode: host
-    stdin_open: true
-    tty: true
-    privileged: true
-    volumes:
-      - /dev:/dev
-      - /home/team8/Documents:/opt/ros2ws/src/cv/img
-
-  mobrob_sens:
-    build:
-      context: .
-      dockerfile: dockerfiles/sensDockerfile
-    pull_policy: build
-    logging:
-      driver: "none"
-    network_mode: host
-    stdin_open: true
-    tty: true
-    privileged: true
-    volumes:
-      - /dev:/dev
-
   mobrob_aria:
     build:
       context: .
@@ -53,6 +25,19 @@ services:
     volumes:
       - /dev:/dev
 
+  mobrob_cv:
+    build:
+      context: .
+      dockerfile: dockerfiles/CVDockerfile
+    pull_policy: build
+    network_mode: host
+    stdin_open: true
+    tty: true
+    privileged: true
+    volumes:
+      - /dev:/dev
+      - /home/team8/Documents:/opt/ros2ws/src/cv/img
+
   mobrob_basic_drive:
     build:
       context: .
@@ -75,5 +60,53 @@ services:
     tty: true
     privileged: true
     restart: unless-stopped
+    volumes:
+      - /dev:/dev
+
+  mobrob_ekf:
+    build:
+      context: .
+      dockerfile: dockerfiles/Sensors/EKFDockerfile
+    pull_policy: build
+    network_mode: host
+    stdin_open: true
+    tty: true
+    privileged: true
+    volumes:
+      - /dev:/dev
+
+  mobrob_gps:
+    build:
+      context: .
+      dockerfile: dockerfiles/Sensors/GPSDockerfile
+    pull_policy: build
+    network_mode: host
+    stdin_open: true
+    tty: true
+    privileged: true
+    volumes:
+      - /dev:/dev
+
+  mobrob_imu:
+    build:
+      context: .
+      dockerfile: dockerfiles/Sensors/IMUDockerfile
+    pull_policy: build
+    network_mode: host
+    stdin_open: true
+    tty: true
+    privileged: true
+    volumes:
+      - /dev:/dev
+
+  mobrob_sick:
+    build:
+      context: .
+      dockerfile: dockerfiles/Sensors/SICKScanDockerfile
+    pull_policy: build
+    network_mode: host
+    stdin_open: true
+    tty: true
+    privileged: true
     volumes:
       - /dev:/dev

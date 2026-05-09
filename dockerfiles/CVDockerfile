@@ -3,11 +3,7 @@ RUN apt update && apt upgrade -y
 RUN apt install software-properties-common -y
 RUN add-apt-repository universe
 #Luisa Dockerfile
-#env variables
-ENV DEBIAN_FRONTEND=noninteractive
-ENV ROS_DOMAIN_ID=8
-ENV RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
-ENV CYCLONEDDS_URI="<CycloneDDS><Domain><General><Interfaces><NetworkInterface name=\"wlp0s20f3\"/></Interfaces></General></Domain></CycloneDDS>"
+
 
 #install ROS2 jazzy
 RUN apt update && apt install curl -y
@@ -20,14 +16,10 @@ RUN apt install ros-jazzy-ros-base -y
 
 #cyclone 
 RUN apt install ros-jazzy-rmw-cyclonedds-cpp -y
-ENV RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
-ENV CYCLONEDDS_URI="<CycloneDDS><Domain><General><Interfaces><NetworkInterface name=\"wlp0s20f3\"/></Interfaces></General></Domain></CycloneDDS>" 
-#wlp0s20f3
 
 # Source ROS on container start
 SHELL ["/bin/bash", "-c"]
 RUN echo "source /opt/ros/jazzy/setup.bash" >> ~/.bashrc
-ENV ROS_DOMAIN_ID=8
 
 # build essentials & ROS tools
 RUN apt install git -y
@@ -44,7 +36,7 @@ RUN apt install libusb-1.0-0-dev -y
 #depthai
 RUN python3 -m pip install depthai --break-system-packages
 
-RUN apt update && apt install -y python3-pip python3-venv
+RUN apt update && apt install python3-pip python3-venv -y
 
 RUN python3 -m venv /opt/venv --system-site-packages
 ENV PATH="/opt/venv/bin:$PATH"
@@ -54,7 +46,6 @@ RUN /opt/venv/bin/pip install "numpy<2"
 RUN /opt/venv/bin/pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
 RUN /opt/venv/bin/pip install ultralytics --break-system-packages
 
-#RUN mkdir -p /opt/ros2ws/models && curl -L "https://artifacts.luxonis.com/artifactory/luxonis-python-snapshot-local/depthai_sdk/yolov6n_coco_640x640.blob" -o /opt/ros2ws/models/yolov6n.blob
 #cv_bridge
 RUN apt install ros-jazzy-cv-bridge -y
 RUN apt install ros-jazzy-vision-msgs -y
@@ -62,7 +53,12 @@ RUN apt install ros-jazzy-vision-msgs -y
 #copy src dir and setup workspace
 COPY ros2ws /opt/ros2ws
 WORKDIR /opt/ros2ws
-RUN chmod 777 -R /opt/ros2ws
+
+#env variables
+ENV DEBIAN_FRONTEND=noninteractive
+ENV ROS_DOMAIN_ID=8
+ENV RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
+ENV CYCLONEDDS_URI="<CycloneDDS><Domain><General><Interfaces><NetworkInterface name=\"wlp0s20f3\"/></Interfaces></General></Domain></CycloneDDS>"
 
 #build all packages in the workspace
 RUN . /opt/ros/jazzy/setup.bash && /opt/venv/bin/python -m colcon build --packages-select cv --symlink-install 
