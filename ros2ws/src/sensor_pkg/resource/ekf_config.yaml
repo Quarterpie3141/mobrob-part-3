@@ -17,7 +17,6 @@
                        false, false, true,
                        false, false, false]
         odom0_relative: true
-        odom0_differentail: false
 
 
         imu0: imu/data
@@ -26,15 +25,5 @@
                       false, false, false,
                       false, false, true,
                       false, false, false]
-        imu0_relative: false
-        imu0_remove_gravitational_acceleration: true
+        imu0_relative: true
 
-
-        # gps0: gnss/fix
-        # gps0_config: [true,  true,  false, # Position, 
-        #             false, false, false,
-        #             false, false, false,
-        #             false, false, false,
-        #             false, false, false]
-        # gps0_differential: false
-        # gps0_relative: false

@@ -21,10 +21,11 @@ RUN echo "source /opt/ros/jazzy/setup.bash" >> ~/.bashrc
 WORKDIR /opt/ros2ws
 RUN mkdir -p /opt/ros2ws/src
 COPY ros2ws/src/sensor_pkg /opt/ros2ws/src/sensor_pkg
+COPY ros2ws/src/ekf_pkg /opt/ros2ws/src/ekf_pkg
 
 SHELL ["/bin/bash", "-c"]
 # Build only the packages needed for the combined launch.
-RUN source /opt/ros/jazzy/setup.bash && colcon build --packages-select sensor_pkg
+RUN source /opt/ros/jazzy/setup.bash && colcon build --packages-select sensor_pkg ekf_pkg
 
 RUN echo "source /opt/ros2ws/install/setup.bash" >> ~/.bashrc
 

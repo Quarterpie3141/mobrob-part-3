@@ -111,14 +111,14 @@ services:
     volumes:
       - /dev:/dev
 
-slam:
-    build:
-      context: .
-      dockerfile: dockerfiles/slamDockerfile
-    pull_policy: build
-    network_mode: host
-    stdin_open: true
-    tty: true
-    privileged: true
-    volumes:
-      - /dev:/dev
+  mobrob_slam:
+      build:
+        context: .
+        dockerfile: dockerfiles/slamDockerfile
+      pull_policy: build
+      network_mode: host
+      stdin_open: true
+      tty: true
+      privileged: true
+      volumes:
+        - /dev:/dev

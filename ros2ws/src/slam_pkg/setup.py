@@ -12,7 +12,7 @@ setup(
         ('share/' + package_name, ['package.xml']),
         # Add these two lines:
         ('share/' + package_name, ['launch_SLAM.py']),
-        ('share/' + package_name + '/resource', ['resource/mapper_params_online_async.yaml']),
+        ('share/' + package_name + '/resource', ['resource/mapping_params.yaml']),
     ],
     install_requires=['setuptools'],
     zip_safe=True,
