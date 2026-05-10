@@ -2,7 +2,7 @@ import os
 
 from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
-from launch.actions import IncludeLaunchDescription
+from launch.actions import IncludeLaunchDescription, SetParametersFromFile
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch_ros.actions import Node
 
@@ -19,10 +19,29 @@ def generate_launch_description():
         
     )
 
+    # magwick_imu = IncludeLaunchDescription(
+    #     PythonLaunchDescriptionSource(
+    #         os.path.join(pkg_imu_orientation, 'launch', 'imu_filter.launch.py')
+    #     ),
+    #     launch_arguments={'fixed_frame': 'imu', 
+    #                     'publish_tf': 'False'}.items()
+    # )
+
     magwick_imu = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
             os.path.join(pkg_imu_orientation, 'launch', 'imu_filter.launch.py')
-        )
+        ),
+        launch_arguments={
+            'fixed_frame': 'imu',
+            'publish_tf': 'false',
+        }.items()
+    )
+    
+    # Load parameter overrides to disable TF publishing
+    imu_params_file = os.path.join(
+        get_package_share_directory('ekf_pkg'),
+        'resource',
+        'imu_filter_params.yaml'
     )
 
     imu_transform = Node(
@@ -51,5 +70,8 @@ def generate_launch_description():
     return LaunchDescription([
         phidget_imu,
         magwick_imu,
+        SetParametersFromFile(
+            yaml_filename=imu_params_file
+        ),
         imu_transform,
     ])

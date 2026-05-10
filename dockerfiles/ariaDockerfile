@@ -39,5 +39,4 @@ ENV ROS_DOMAIN_ID=8
 ENV RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
 ENV CYCLONEDDS_URI="<CycloneDDS><Domain><General><Interfaces><NetworkInterface name=\"wlp0s20f3\"/></Interfaces></General></Domain></CycloneDDS>"
 
-CMD ["bash", "-lc", "source /opt/ros/jazzy/setup.bash && source /opt/ros2ws/install/setup.bash && ros2 run rosaria2 rosaria2_node --ros-args --log-level warn -r /pose:=/odom/wheels"]
-
+CMD ["bash", "-lc", "source /opt/ros/jazzy/setup.bash && source /opt/ros2ws/install/setup.bash && ros2 run rosaria2 rosaria2_node --ros-args --log-level warn -r /pose:=/odom/wheels -r /tf:=/tf_unused"]
