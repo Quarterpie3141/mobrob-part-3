@@ -49,7 +49,7 @@ def generate_launch_description():
         }.items()
     )
 
-    heading_printer_node = Node,
+    heading_printer_node = Node(
         package='ekf_pkg',
         executable='heading_printer',
         name='heading_printer',

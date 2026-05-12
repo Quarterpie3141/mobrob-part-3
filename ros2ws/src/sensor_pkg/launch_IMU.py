@@ -29,7 +29,7 @@ def generate_launch_description():
         }.items()
     )
 
-    imu_transform = Node,
+    imu_transform = Node(
         package="tf2_ros",
         executable="static_transform_publisher",
         arguments=[
