@@ -154,7 +154,7 @@ controller_server:
       visualize: true
       publish_optimal_trajectory: true
       regenerate_noises: true
-      motion_model: "diff_drive"
+      motion_model: "DiffDrive"
       diff_drive:
         plugin: "mppi::DiffDriveMotionModel"
       TrajectoryVisualizer:
