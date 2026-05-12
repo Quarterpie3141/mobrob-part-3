@@ -1,4 +1,4 @@
 **/build
 **/install
 **/log
-**/venv
+**/venv.DS_Store
