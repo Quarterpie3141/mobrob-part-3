@@ -44,7 +44,7 @@ bt_navigator:
   ros__parameters:
     global_frame: map
     robot_base_frame: base_link
-    odom_topic: odom
+    odom_topic: /odometry/filtered #WAS odom
     bt_loop_duration: 10
     filter_duration: 0.3
     default_server_timeout: 20
@@ -256,7 +256,7 @@ local_costmap:
       inflation_layer:
         plugin: "nav2_costmap_2d::InflationLayer"
         cost_scaling_factor: 3.0
-        inflation_radius: 0.70
+        inflation_radius: 0.50 #WAS 0.70
       voxel_layer:
         plugin: "nav2_costmap_2d::VoxelLayer"
         enabled: true
@@ -494,7 +494,7 @@ velocity_smoother:
     min_velocity: [-0.35, 0.0, -0.8] # WAS 
     max_accel: [2.5, 0.0, 3.2]
     max_decel: [-2.5, 0.0, -3.2]
-    odom_topic: "odom"
+    odom_topic: /odometry/filtered #WAS "odom"
     odom_duration: 0.1
     deadband_velocity: [0.0, 0.0, 0.0]
     velocity_timeout: 1.0
