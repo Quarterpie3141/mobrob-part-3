@@ -19,42 +19,58 @@ class DepthAICameraNode(Node):
     def __init__(self):
         super().__init__('depthai_camera_node')
 
+# ...existing code...
         self.publisher_ = self.create_publisher(Image, 'camera/raw_image', 10)
         self.detection_pub = self.create_publisher(Detection2DArray, "camera/detections", 10)
         self.image_pub = self.create_publisher(Image, "camera/detections/image", 10)
         self.cmd_vel_pub = self.create_publisher(Twist, "/cmd_vel", 10)
         self.slave_status_pub = self.create_publisher(String, '/slave/status', 10)
         self.master_status_pub = self.create_publisher(String, '/master/status', 10)
-
++       self.scan_complete_pub = self.create_publisher(Bool, '/scan_complete', 10)
++
         self.bridge = CvBridge()
         self.trigger_sub = self.create_subscription(Empty, 'camera/take_photo', self.trigger_callback, 10)
         self.master_status_sub = self.create_subscription(String, '/master/status', self.master_status_callback, 10)
         self.joy_sub = self.create_subscription(Joy, '/joy', self.joy_callback, 10)
         self.odom_sub = self.create_subscription(Odometry, '/Odom', self.odom_callback, 10)
-
+ 
         self.master_status = None
         self.last_master_status = None
-
+ 
         self.latest_lat = None
         self.latest_lon = None
         self.imgdir = os.path.join(os.getcwd(), "img/")
         self.modeldir = os.path.join(os.getcwd(),"src","cv", "models")
-
+ 
         #START TESTING STUFF
         #THESE WILL NEED TWEEKING
         self.target_locked_frames = 0
         self.required_locked_frames = 5
-
+ 
         self.center_threshold_px = 60
         self.min_box_area = 25000
-
+ 
         self.picture_taken = False
-
+ 
         self.searching = False
         self.search_start_yaw = 0.0
         self.accumulated_rotation = 0.0
         self.previous_yaw = 0.0
++       # yaw/odom state defaults (prevent AttributeError before odom msgs arrive)
++       self.prev_yaw = 0.0
++       self.total_yaw = 0.0
++       self.yaw_initialised = False   # used in odom_callback (British spelling)
++       self.yaw_initialized = False   # used elsewhere (American spelling)
++       # robot pose / velocity defaults
++       self.robot_yaw = 0.0
++       self.robot_x = 0.0
++       self.robot_y = 0.0
++       self.vx = 0.0
++       self.vy = 0.0
++       self.omega = 0.0
++       self.robot_moving = False
         self.full_rotation_threshold = 2.0 * math.pi
+# ...existing code...
 
         #END TESTING STUFF
 
