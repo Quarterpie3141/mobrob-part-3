@@ -11,7 +11,7 @@ services:
     privileged: true
     volumes:
       - /dev:/dev
-      - /home/team8/Documents:/opt/ros2ws/src/cv/img
+      - /home/team8/Documents:/opt/ros2ws/img
 
   mobrob_sens:
     build:
