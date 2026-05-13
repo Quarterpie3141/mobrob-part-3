@@ -207,7 +207,7 @@ class DepthAICameraNode(Node):
         #protect against this locking out/fighting global controller if needed
         if self.master_status != 'taking picture':
             return
-
+        self.get_logger().info(f"Status OK. total_yaw={self.total_yaw}, searching={self.searching}")
 
         #stop searching after 360 spin
         if self.total_yaw >= self.full_rotation_threshold:
@@ -233,6 +233,7 @@ class DepthAICameraNode(Node):
         in_rgb = self.q_rgb.tryGet()
 
         if in_rgb is None:
+            self.get_logger().warn("No frame from camera")
             return
 
         if not self.searching:
