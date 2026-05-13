@@ -29,10 +29,9 @@ setup(
         ],
     },
     entry_points={
-         'console_scripts': ['cv_node = cv.rosCam:main'],
-         'console_scripts': ['cam_imu_node = cv.imu:main'],
-       # 'console_scripts': ['camera_node = depth_ai.camera_node:main',
-               #             'state_machine_node = depth_ai.state_machine_node:main'
-
+        'console_scripts': [
+            'cv_node = cv.CAM:main',
+            'cam_imu_node = cv.imu:main',
+        ],
     },
 )
