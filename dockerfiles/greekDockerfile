@@ -32,10 +32,10 @@ RUN apt install python3-pip -y
 RUN apt install libusb-1.0-0-dev -y
 
 
-RUN pip3 install --break-system-packages  --upgrade pip setuptools wheel
+# RUN pip3 install --break-system-packages  --upgrade pip setuptools wheel
 
 RUN pip3 install --break-system-packages torch torchvision --index-url https://download.pytorch.org/whl/cpu
-RUN pip3 install --break-system-packages ultralytics inference
+RUN pip3 install --break-system-packages --ignore-installed ultralytics inference
 RUN pip3 install --break-system-packages "numpy<2"
 
 #cv_bridge
@@ -50,9 +50,10 @@ WORKDIR /opt/ros2ws
 ENV DEBIAN_FRONTEND=noninteractive
 ENV ROS_DOMAIN_ID=8
 ENV RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
-ENV CYCLONEDDS_URI="<CycloneDDS><Domain><General><Interfaces><NetworkInterface name=\"wlp0s20f3\"/></Interfaces></General></Domain></CycloneDDS>"
+ENV CYCLONEDDS_URI="<CycloneDDS><Domain><General><Interfaces><NetworkInterface name=\"enp89s0\"/></Interfaces></General></Domain></CycloneDDS>"
+# ENV CYCLONEDDS_URI="<CycloneDDS><Domain><General><Interfaces><NetworkInterface name=\"wlp0s20f3\"/></Interfaces></General></Domain></CycloneDDS>"
 
 #build all packages in the workspace
-RUN . /opt/ros/jazzy/setup.bash && colcon build --packages-select greek --symlink-install 
+RUN . /opt/ros/jazzy/setup.bash && colcon build --packages-select greek
 RUN echo "source /opt/ros2ws/install/setup.bash" >> ~/.bashrc
 CMD ["bash", "-lc", "source /opt/ros/jazzy/setup.bash && source /opt/ros2ws/install/setup.bash && ros2 run greek greek"]
