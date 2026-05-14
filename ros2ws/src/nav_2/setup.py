@@ -25,7 +25,7 @@ setup(
         ],
     },
     entry_points={
-        'console_scripts': [
+        'console_scripts': [ 'cmd_vel_relay = nav_2.cmd_vel_relay:main',
         ],
     },
 )

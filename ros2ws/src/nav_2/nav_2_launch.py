@@ -4,6 +4,7 @@ from launch import LaunchDescription
 from launch.actions import IncludeLaunchDescription, DeclareLaunchArgument
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration
+from launch_ros.actions import Node
 
 def generate_launch_description():
     nav2_bringup_dir = get_package_share_directory('nav2_bringup')
@@ -29,8 +30,16 @@ def generate_launch_description():
             'autostart': 'true'
         }.items()
     )
+    # This node bypasses the collision_monitor by manually bridging the topics
+    cmd_relay_node = Node(
+        package='nav_2',        
+        executable='cmd_vel_relay', 
+        name='cmd_vel_relay',
+        output='screen'
+    )
 
     return LaunchDescription([
         declare_params_file_cmd,
-        navigation_launch
+        navigation_launch,
+        cmd_relay_node
     ])
