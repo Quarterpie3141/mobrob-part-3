@@ -5,12 +5,11 @@ from sensor_msgs.msg import Image
 from cv_bridge import CvBridge
 import depthai as dai
 import cv2
-import ultralytics
 
 
-class DepthAICameraNode(Node):
+class image_publisher(Node):
     def __init__(self):
-        super().__init__('depthai_camera_node')
+        super().__init__('image_publisher_node')
 
         self.bridge = CvBridge()
         self.image_publisher_ = self.create_publisher(Image, 'camera/raw_image', 10)
@@ -34,7 +33,7 @@ class DepthAICameraNode(Node):
 
 def main(args=None):
     rclpy.init(args=args)
-    node = DepthAICameraNode()
+    node = image_publisher()
 
     try:
         rclpy.spin(node)

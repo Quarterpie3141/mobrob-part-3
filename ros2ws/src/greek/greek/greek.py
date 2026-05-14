@@ -3,21 +3,21 @@ import rclpy
 from rclpy.node import Node
 from sensor_msgs.msg import Image
 from cv_bridge import CvBridge
-import depthai as dai
-import cv2
-import ultralytics
 from inference import get_model
+from std_msgs.msg import String
+import cv2
 
 
-class DepthAICameraNode(Node):
+
+class greek(Node):
     def __init__(self):
-        super().__init__('depthai_camera_node')
+        super().__init__('greek')
         self.model = get_model(
         model_id="test-2-150-per/1",
         api_key="Kms3xRqZ4JstX4UopFEA"
         )
 
-        self.CLASSES = {'- negative': "alpha", '1': "beta", '2': "delta", '3': "eta", '4': "lambda", '5': "mu", '6': "rho", '7': "tau", '8': "psi", '9': "omega"}
+        self.CLASSES = {'- negative': "alpha", '1': "beta", '2': "delta", '3': "eta", '4': "lambda", '5': "mu", '6': "rho", '7': "tau", '8': "psi", '9': "gamma"}
 
         self.bridge = CvBridge()
         self.letter_detection_pub = self.create_publisher(String, 'camera/letter_detection', 10)
@@ -26,7 +26,7 @@ class DepthAICameraNode(Node):
 
 
     def raw_image_callback(self, msg):
-        
+
         frame = self.bridge.imgmsg_to_cv2(msg, desired_encoding='bgr8')
 
         h, w = frame.shape[:2]
@@ -52,13 +52,13 @@ class DepthAICameraNode(Node):
                 )
             
             predicted_letter = self.CLASSES[pred.class_name]
-            self.letter_detection_pub.publish(predicted_letter)
+            self.letter_detection_pub.publish(String(data=predicted_letter))
 
       
 
 def main(args=None):
     rclpy.init(args=args)
-    node = DepthAICameraNode()
+    node = greek()
 
     try:
         rclpy.spin(node)
