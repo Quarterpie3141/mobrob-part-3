@@ -136,8 +136,8 @@ controller_server:
       model_dt: 0.05
       batch_size: 2000
       open_loop: false
-      ax_max: 0.5 # WAS 3.0
-      ax_min: -0.5 # WAS -3.0
+      ax_max: 1.0 # WAS 3.0
+      ax_min: -1.0 # WAS -3.0
       ay_max: 3.0
       ay_min: -3.0
       az_max: 3.5
@@ -147,7 +147,7 @@ controller_server:
       vx_max: 0.5 # WAS 0.5
       vx_min: -0.35 #was -0.35
       vy_max: 0.5
-      wz_max: 0.8 # WAS 1.9
+      wz_max: 1.9 # WAS 1.9
       iteration_count: 1
       temperature: 0.3
       gamma: 0.015
@@ -256,7 +256,7 @@ local_costmap:
       inflation_layer:
         plugin: "nav2_costmap_2d::InflationLayer"
         cost_scaling_factor: 3.0
-        inflation_radius: 0.3 #WAS 0.70
+        inflation_radius: 0.4 #WAS 0.70
       voxel_layer:
         plugin: "nav2_costmap_2d::VoxelLayer"
         enabled: true
@@ -338,7 +338,7 @@ global_costmap:
       inflation_layer:
         plugin: "nav2_costmap_2d::InflationLayer"
         cost_scaling_factor: 3.0
-        inflation_radius: 0.3 # WAS 0.7
+        inflation_radius: 0.4 # WAS 0.7
       always_send_full_costmap: true
       introspection_mode: "disabled"
 
@@ -430,13 +430,13 @@ behavior_server:
       plugin: "nav2_behaviors::Spin"
     backup:
       plugin: "nav2_behaviors::BackUp"
-      acceleration_limit: 0.5 # WAS 2.5
-      deceleration_limit: -0.5 # WAS -2.5
+      acceleration_limit: 2.5 # WAS 2.5
+      deceleration_limit: -2.5 # WAS -2.5
       minimum_speed: 0.10
     drive_on_heading:
       plugin: "nav2_behaviors::DriveOnHeading"
-      acceleration_limit: 0.5 # WAS 2.5
-      deceleration_limit: -0.5 # WAS -2.5
+      acceleration_limit: 2.5 # WAS 2.5
+      deceleration_limit: -2.5 # WAS -2.5
       minimum_speed: 0.10
     wait:
       plugin: "nav2_behaviors::Wait"
@@ -490,8 +490,8 @@ velocity_smoother:
     smoothing_frequency: 20.0
     scale_velocities: false
     feedback: "OPEN_LOOP"
-    max_velocity: [0.5, 0.0, 0.8] # WAS [0.5, 0.0, 2.0]
-    min_velocity: [-0.35, 0.0, -0.8] # WAS 
+    max_velocity: [0.5, 0.0, 1.0] # WAS [0.5, 0.0, 2.0]
+    min_velocity: [-0.35, 0.0, -1.0] # WAS 
     max_accel: [2.5, 0.0, 3.2]
     max_decel: [-2.5, 0.0, -3.2]
     odom_topic: /odometry/filtered #WAS "odom"
