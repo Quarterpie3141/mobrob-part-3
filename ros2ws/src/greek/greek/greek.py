@@ -26,6 +26,13 @@ class DepthAICameraNode(Node):
 
 
     def raw_image_callback(self, msg):
+        
+        frame = self.bridge.imgmsg_to_cv2(msg, desired_encoding='bgr8')
+
+        h, w = frame.shape[:2]
+        cx, cy = w // 2, h // 2
+        half = 290
+        frame = frame[cy - half:cy + half, cx - half:cx + half]
 
         results = self.model.infer(frame)[0]
 
