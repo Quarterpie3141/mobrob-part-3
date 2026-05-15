@@ -42,7 +42,7 @@ from launch_ros.actions import Node
 def generate_launch_description():
 
     pkg = get_package_share_directory('nav_2')
-    pkg_config = os.path.join(pkg, 'config')
+    pkg_config = os.path.join(pkg, 'params')
     nav2_params = os.path.join(pkg_config, 'nav2_params.yaml')
     mapper_params = os.path.join(pkg_config, 'slam_config.yaml')
 

@@ -12,6 +12,7 @@ setup(
         ('share/' + package_name, ['package.xml']),
         ('share/' + package_name, ['nav_2_launch.py']),
         ('share/' + package_name + '/params', ['params/nav2_params.yaml']),
+        ('share/' + package_name + '/params', ['params/slam_config.yaml']),
     ],
     install_requires=['setuptools'],
     zip_safe=True,
