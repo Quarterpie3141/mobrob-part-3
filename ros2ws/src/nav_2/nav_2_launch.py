@@ -64,7 +64,7 @@ def generate_launch_description():
         name='slam_toolbox',
         condition=IfCondition(is_slam_or_slam_nav),
         output='screen',
-        parameters=[mapper_params, {'use_sim_time': false}],
+        parameters=[mapper_params, {'use_sim_time': use_sim_time}],
     )
 
     # Lifecycle: configure then activate slam_toolbox once it starts.
