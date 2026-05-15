@@ -38,13 +38,13 @@ def generate_launch_description():
     )
     
     # Load parameter overrides to disable TF publishing
-    # imu_params_file = os.path.join(
-    #     get_package_share_directory('ekf_pkg'),
-    #     'resource',
-    #     'imu_filter_params.yaml'
-    # )
+    imu_params_file = os.path.join(
+        get_package_share_directory('ekf_pkg'),
+        'resource',
+        'imu_filter_params.yaml'
+    )
 
-    imu_transform = Node,
+    imu_transform = Node(
         package="tf2_ros",
         executable="static_transform_publisher",
         arguments=[
@@ -70,8 +70,8 @@ def generate_launch_description():
     return LaunchDescription([
         phidget_imu,
         magwick_imu,
-        # SetParametersFromFile(
-        #     yaml_filename=imu_params_file
-        # ),
+        SetParametersFromFile(
+            yaml_filename=imu_params_file
+        ),
         imu_transform,
     ])
