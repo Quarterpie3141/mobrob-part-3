@@ -44,7 +44,7 @@ def generate_launch_description():
         'imu_filter_params.yaml'
     )
 
-    imu_transform = Node(
+    imu_transform = Node,
         package="tf2_ros",
         executable="static_transform_publisher",
         arguments=[
