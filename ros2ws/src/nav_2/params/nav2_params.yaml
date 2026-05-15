@@ -30,7 +30,7 @@ amcl:
     save_pose_rate: 0.5
     sigma_hit: 0.2
     tf_broadcast: true
-    transform_tolerance: 2.0 #WAS 1.0
+    transform_tolerance: 5.0 #WAS 1.0
     introspection_mode: "disabled"
     update_min_a: 0.2
     update_min_d: 0.25
@@ -144,7 +144,7 @@ controller_server:
       wz_max: 1.9
       iteration_count: 1
       prune_distance: 1.7
-      transform_tolerance: 0.1
+      transform_tolerance: 5.0 #WAS 0.1
       temperature: 0.3
       gamma: 0.015
       motion_model: DiffDrive
@@ -425,7 +425,7 @@ behavior_server:
     local_frame: odom
     global_frame: map
     robot_base_frame: base_link
-    transform_tolerance: 2.0 #WAS 0.1
+    transform_tolerance: 5.0 #2.0 #WAS 0.1
     simulate_ahead_time: 2.0
     max_rotational_vel: 0.8 # WAS 1.0
     min_rotational_vel: 0.4
@@ -487,7 +487,7 @@ collision_monitor:
     cmd_vel_in_topic: "cmd_vel_smoothed"
     cmd_vel_out_topic: "cmd_vel"
     state_topic: "collision_monitor_state"
-    transform_tolerance: 2.0 # WAS 0.2
+    transform_tolerance: 5.0 # WAS 0.2
     #source_timeout: 1.0
     base_shift_correction: true
     #stop_pub_timeout: 2.0
@@ -560,7 +560,7 @@ docking_server:
       use_collision_detection: true
       costmap_topic: "local_costmap/costmap_raw"
       footprint_topic: "local_costmap/published_footprint"
-      transform_tolerance: 2.0 #WAS 0.1
+      transform_tolerance: 5.0 #WAS 0.1
       projection_time: 5.0
       simulation_step: 0.1
       dock_collision_threshold: 0.3
