@@ -511,8 +511,8 @@ collision_monitor:
     #source_timeout: 1.0
     base_shift_correction: true
     #stop_pub_timeout: 2.0
-      Polygons represent zone around the robot for "stop", "slowdown" and "limit" action types,
-      and robot footprint for "approach" action type.
+      #Polygons represent zone around the robot for "stop", "slowdown" and "limit" action types,
+      #and robot footprint for "approach" action type.
     polygons: [] #WAS polygons: ["FootprintApproach"]
     FootprintApproach:
       type: "polygon"
