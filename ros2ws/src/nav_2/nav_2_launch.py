@@ -27,7 +27,8 @@ def generate_launch_description():
         launch_arguments={
             'use_sim_time': 'false', # Setting to false for your physical robot
             'params_file': LaunchConfiguration('params_file'),
-            'autostart': 'true'
+            'autostart': 'true',
+            'use_collision_monitor': 'false',
         }.items()
     )
     # This node bypasses the collision_monitor by manually bridging the topics
