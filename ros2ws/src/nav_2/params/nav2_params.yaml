@@ -280,9 +280,9 @@ local_costmap:
           marking: true
           data_type: "LaserScan"
           raytrace_max_range: 3.0
-          raytrace_min_range: 0.25 #WAS 0.0 TRY POINT0.5
-          obstacle_max_range: 2.5
-          obstacle_min_range: 0.25 #WAS 0.0 TRY POINT0.5
+          raytrace_min_range: 0.5 #WAS 0.0 TRY POINT0.5
+          obstacle_max_range: 2.5 #comemdsgu
+          obstacle_min_range: 0.5 #WAS 0.0 TRY POINT0.5
       static_layer:
         plugin: "nav2_costmap_2d::StaticLayer"
         map_subscribe_transient_local: true
@@ -329,9 +329,9 @@ global_costmap:
           marking: true
           data_type: "LaserScan"
           raytrace_max_range: 3.0
-          raytrace_min_range: 0.25 #WAS 0.0 TRY POINT0.5
+          raytrace_min_range: 0.5 #WAS 0.0 TRY POINT0.5
           obstacle_max_range: 2.5
-          obstacle_min_range: 0.25 #WAS 0.0 TRY POINT0.5
+          obstacle_min_range: 0.5 #WAS 0.0 TRY POINT0.5
       static_layer:
         plugin: "nav2_costmap_2d::StaticLayer"
         map_subscribe_transient_local: true
