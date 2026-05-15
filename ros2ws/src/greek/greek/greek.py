@@ -26,33 +26,41 @@ class greek(Node):
 
 
     def raw_image_callback(self, msg):
-
+        self.get_logger().info(f"Received image {msg.width}x{msg.height}")
         frame = self.bridge.imgmsg_to_cv2(msg, desired_encoding='bgr8')
 
-        h, w = frame.shape[:2]
-        cx, cy = w // 2, h // 2
-        half = 290
-        frame = frame[cy - half:cy + half, cx - half:cx + half]
+        # h, w = frame.shape[:2]
+        # cx, cy = w // 2, h // 2
+        # half = 290
+        # frame = frame[cy - half:cy + half, cx - half:cx + half]
 
         results = self.model.infer(frame)[0]
-
+        
+        if not results.predictions:
+            self.letter_detection_pub.publish(String(data="nothing detected"))
+            return
         # Draw detections
         for pred in results.predictions:
-            x1 = int(pred.x - pred.width / 2)
-            y1 = int(pred.y - pred.height / 2)
-            x2 = int(pred.x + pred.width / 2)
-            y2 = int(pred.y + pred.height / 2)
+            if pred.confidence > 0.8:
+                x1 = int(pred.x - pred.width / 2)
+                y1 = int(pred.y - pred.height / 2)
+                x2 = int(pred.x + pred.width / 2)
+                y2 = int(pred.y + pred.height / 2)
 
-            cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
-            cv2.putText(
-                frame,
-                f"{self.CLASSES[pred.class_name]} {pred.confidence:.0%}",
-                (x1, y1 - 8),
-                cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2
-                )
+                cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
+                cv2.putText(
+                    frame,
+                    f"{self.CLASSES[pred.class_name]} {pred.confidence:.0%}",
+                    (x1, y1 - 8),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2
+                    )
+                
+                predicted_letter = self.CLASSES[pred.class_name]
+                self.letter_detection_pub.publish(String(data=predicted_letter))
+            else:
+                self.letter_detection_pub.publish(String(data="confidece too low"))
+
             
-            predicted_letter = self.CLASSES[pred.class_name]
-            self.letter_detection_pub.publish(String(data=predicted_letter))
 
       
 

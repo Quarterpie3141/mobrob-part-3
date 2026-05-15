@@ -18,16 +18,28 @@ RUN echo "source /opt/ros/jazzy/setup.bash" >> ~/.bashrc
 WORKDIR /opt/ros2ws
 RUN mkdir -p /opt/ros2ws/src
  
+
+
+# RUN apt-get update && apt-get install -y python3-pip
+# RUN pip3 install --break-system-packages --ignore-installed depthai
+
+# RUN apt install python3-opencv -y
+
+# #cv_bridge
+# RUN apt install ros-jazzy-cv-bridge -y
+# RUN apt install ros-jazzy-vision-msgs -y
+
+# RUN apt remove python3-numpy -y
+# RUN pip3 install --break-system-packages --ignore-installed "numpy<2"
+
+#test
 RUN apt-get update && apt-get install -y python3-pip
-RUN pip3 install --break-system-packages --ignore-installed depthai
+RUN pip3 install --break-system-packages --ignore-installed "numpy==1.26.4"  # pin exact version
 
 RUN apt install python3-opencv -y
-
-#cv_bridge
 RUN apt install ros-jazzy-cv-bridge -y
 RUN apt install ros-jazzy-vision-msgs -y
-
-RUN pip3 install --break-system-packages --ignore-installed "numpy<2"
+RUN pip3 install --break-system-packages --ignore-installed depthai          # depthai last
 
 COPY ros2ws/src/image_publisher /opt/ros2ws/src/image_publisher
 SHELL ["/bin/bash", "-c"]
@@ -38,9 +50,6 @@ RUN echo "source /opt/ros2ws/install/setup.bash" >> ~/.bashrc
 
 ENV DEBIAN_FRONTEND=noninteractive
 ENV ROS_DOMAIN_ID=8
-ENV RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
-# ENV CYCLONEDDS_URI="<CycloneDDS><Domain><General><Interfaces><NetworkInterface name=\"wlp0s20f3\"/></Interfaces></General></Domain></CycloneDDS>"
-ENV CYCLONEDDS_URI="<CycloneDDS><Domain><General><Interfaces><NetworkInterface name=\"eth0\"/></Interfaces></General></Domain></CycloneDDS>"
 
-CMD ["bash", "-lc", "source /opt/ros/jazzy/setup.bash && source /opt/ros2ws/install/setup.bash && ros2 run image_publisher image_publisher_node"]
-
+# CMD ["bash", "-lc", "source /opt/ros/jazzy/setup.bash && source /opt/ros2ws/install/setup.bash && ros2 run image_publisher image_publisher_node"]
+CMD ["bash", "-lc", "sleep 5 && source /opt/ros/jazzy/setup.bash && source /opt/ros2ws/install/setup.bash && ros2 run image_publisher image_publisher"]
