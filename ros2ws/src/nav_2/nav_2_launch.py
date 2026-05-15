@@ -12,12 +12,13 @@ from launch_ros.actions import Node
 def generate_launch_description():
     nav2_bringup_dir = get_package_share_directory('nav2_bringup')
 
+
     # ── Launch arguments ──────────────────────────────────────────────── #
     mode         = LaunchConfiguration('mode',         default='hardware')
     use_sim_time = LaunchConfiguration('use_sim_time', default='false')
     map_yaml     = LaunchConfiguration('map',          default='my_map.yaml')
     autostart    = LaunchConfiguration('autostart',    default='true')
-    
+
         # ── Conditions ────────────────────────────────────────────────────── #
     is_slam          = EqualsSubstitution(mode, 'slam')
     is_nav           = EqualsSubstitution(mode, 'nav')
@@ -28,7 +29,7 @@ def generate_launch_description():
     
     # Find your package path
     my_nav_pkg_dir = get_package_share_directory('nav_2')
-
+    mapper_params = os.path.join(my_nav_pkg_dir, 'params', 'slam_config.yaml')
     declare_params_file_cmd = DeclareLaunchArgument(
         'params_file',
         default_value=os.path.join(my_nav_pkg_dir, 'params', 'nav2_params.yaml'),
