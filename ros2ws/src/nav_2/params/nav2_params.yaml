@@ -471,14 +471,14 @@ route_server:
     boundary_radius_to_achieve_node: 1.0
     radius_to_achieve_node: 2.0
     smooth_corners: true
-    operations: ["AdjustSpeedLimit", "ReroutingService"] # WAS operations: ["AdjustSpeedLimit", "ReroutingService", "CollisionMonitor"]
+    operations: ["AdjustSpeedLimit", "ReroutingService", "CollisionMonitor"]
     ReroutingService:
       plugin: "nav2_route::ReroutingService"
     AdjustSpeedLimit:
       plugin: "nav2_route::AdjustSpeedLimit"
-    #CollisionMonitor:
-      #plugin: "nav2_route::CollisionMonitor"
-      #max_collision_dist: 3.0
+    CollisionMonitor:
+      plugin: "nav2_route::CollisionMonitor"
+      max_collision_dist: 3.0
     edge_cost_functions: ["DistanceScorer", "CostmapScorer"]
     DistanceScorer:
       plugin: "nav2_route::DistanceScorer"
