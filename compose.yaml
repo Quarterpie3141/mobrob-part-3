@@ -122,3 +122,15 @@ services:
       privileged: true
       volumes:
         - /dev:/dev
+
+  mobrob_nav2:
+    build:
+      context: .
+      dockerfile: dockerfiles/nav2Dockerfile
+    pull_policy: build
+    network_mode: host
+    stdin_open: true
+    tty: true
+    privileged: true
+    volumes:
+      - /dev:/dev
