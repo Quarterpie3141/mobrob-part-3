@@ -494,7 +494,7 @@ velocity_smoother:
     min_velocity: [-0.35, 0.0, -1.0] # WAS 
     max_accel: [2.5, 0.0, 3.2]
     max_decel: [-2.5, 0.0, -3.2]
-    odom_topic: /odometry/filtered #WAS "odom"
+    odom_topic: /odometry/filtered #WAS "odom" /odometry/filtered
     odom_duration: 0.1
     deadband_velocity: [0.0, 0.0, 0.0]
     # velocity_timeout: 1.0
