@@ -469,5 +469,5 @@ def generate_launch_description():
         lifecycle_manager_nav,
 
         # ── Visualisation ── #
-        rviz,
+        #rviz,
     ])
