@@ -501,7 +501,7 @@ velocity_smoother:
 
 collision_monitor:
    ros__parameters:
-     enabled: false
+     enabled: true
      base_frame_id: "base_link"
      odom_frame_id: "odom"
      cmd_vel_in_topic: "cmd_vel_smoothed"
