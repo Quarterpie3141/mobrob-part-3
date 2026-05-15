@@ -132,9 +132,9 @@ controller_server:
       reject_unit_path: false
     FollowPath:
       plugin: "nav2_mppi_controller::MPPIController"
-      time_steps: 56
+      time_steps: 30 # WAS 56
       model_dt: 0.1 #WAS 0.05
-      batch_size: 2000
+      batch_size: 400 # WAS 2000
       open_loop: false
       ax_max: 1.0 # WAS 3.0
       ax_min: -1.0 # WAS -3.0
