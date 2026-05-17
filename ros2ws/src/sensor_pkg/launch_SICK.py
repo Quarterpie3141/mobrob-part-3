@@ -15,6 +15,8 @@ def generate_launch_description():
             'frame_id:=laser_frame',
             'tf_base_frame_id:=base_link',
             'range_min:=0.2',
+            'scantime:=0.3',  # Target 10Hz
+            'skip:=1',        # Set to 1 if you want
         ],
         output='screen',
     )
