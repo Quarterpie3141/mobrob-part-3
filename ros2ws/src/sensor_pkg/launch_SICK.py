@@ -14,6 +14,7 @@ def generate_launch_description():
             'hostname:=192.168.0.1',
             'frame_id:=laser_frame',
             'tf_base_frame_id:=base_link',
+            'range_min:=0.2',
         ],
         output='screen',
     )

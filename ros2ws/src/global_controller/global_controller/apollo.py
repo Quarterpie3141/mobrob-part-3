@@ -15,7 +15,7 @@ from rclpy.action import ActionClient
 
 # Hardcoded waypoints (Lat, Lon, Alt)
 HARDCODED_WAYPOINTS: List[Tuple[float, float, float]] = [
-    (1.5, 2.0, 0.0),
+    (10.0, 2.0, 0.0),
     (4.0, -1.0, 90.0),
     (0.0, 0.0, 0.0)  # Return to origin
 ]
