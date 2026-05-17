@@ -1,10 +1,11 @@
+#!/usr/bin/env python3
 from enum import Enum
 from typing import List, Optional, Tuple
 import math
 
 import rclpy
 from rclpy.node import Node
-from sensor_msgs.msg import NavSatFix
+#from sensor_msgs.msg import NavSatFix
 from std_msgs.msg import String
 
 
@@ -54,7 +55,6 @@ class GlobalControllerNode(Node):
         
         # Subscriptions
         self.create_subscription(String, '/slave/status', self._handle_slave_status, 10)
-        self.create_subscription(NavSatFix, '/gnss/fix', self._handle_gnss_fix, 10)
         
         # Timer
         self.create_timer(self._goal_publish_period, self._on_timer)
