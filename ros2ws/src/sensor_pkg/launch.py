@@ -42,10 +42,14 @@ def generate_launch_description():
     magwick_imu = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
             os.path.join(pkg_imu_orientation, 'launch', 'imu_filter.launch.py')
-        )
+        ),
+        launch_arguments={
+            'publish_tf': 'false',
+            'fixed_frame': 'imu',
+        }.items()
     )
 
-    heading_printer_node = Node(
+    heading_printer_node = Node,
         package='ekf_pkg',
         executable='heading_printer',
         name='heading_printer',

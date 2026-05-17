@@ -22,10 +22,14 @@ def generate_launch_description():
     magwick_imu = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
             os.path.join(pkg_imu_orientation, 'launch', 'imu_filter.launch.py')
-        )
+        ),
+        launch_arguments={
+            'publish_tf': 'false',
+            'fixed_frame': 'imu',
+        }.items()
     )
 
-    imu_transform = Node(
+    imu_transform = Node,
         package="tf2_ros",
         executable="static_transform_publisher",
         arguments=[
