@@ -134,3 +134,16 @@ services:
     privileged: true
     volumes:
       - /dev:/dev
+
+  
+  mobrob_gui:
+    build:
+      context: .
+      dockerfile: dockerfiles/guiDockerfile
+    pull_policy: build
+    network_mode: host
+    stdin_open: true
+    tty: true
+    privileged: true
+    volumes:
+      - /dev:/dev

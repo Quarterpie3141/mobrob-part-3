@@ -1,0 +1,368 @@
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  border-radius: 0 !important;
+  font-family: 'JetBrains Mono', 'Courier New', 'Consolas', monospace;
+}
+
+html, body {
+  background: #000;
+  color: #fff;
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+body {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+/* ---------- HEADER ---------- */
+header {
+  background: #000;
+  padding: 12px 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 2px solid #fff;
+}
+
+header h1 {
+  font-size: 1.1rem;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  font-weight: 700;
+}
+header h1::before { content: '> '; color: #fff; }
+
+#connection-status {
+  padding: 4px 12px;
+  font-weight: 700;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  border: 2px solid #fff;
+}
+#connection-status.connected { background: #fff; color: #000; }
+#connection-status.disconnected { background: #000; color: #fff; }
+#connection-status.disconnected::before { content: '[!] '; }
+#connection-status.connected::before { content: '[+] '; }
+
+/* ---------- MAIN ---------- */
+main {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 0;
+  padding: 0;
+}
+
+section, aside {
+  background: #000;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  border: 2px solid #fff;
+  border-top: none;
+}
+
+section { border-right: none; }
+
+h2 {
+  color: #fff;
+  margin-bottom: 12px;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  border-bottom: 1px solid #fff;
+  padding-bottom: 4px;
+}
+h2::before { content: '// '; }
+
+h3 {
+  color: #fff;
+  margin-bottom: 8px;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+h3::before { content: '## '; }
+
+/* ---------- MINIMAP ---------- */
+#minimap {
+  background: #000;
+  border: 2px solid #fff;
+  width: 100%;
+  max-height: 500px;
+  image-rendering: pixelated;
+}
+
+.pose-info {
+  margin-top: 10px;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  color: #fff;
+  border: 1px dashed #fff;
+  padding: 6px 10px;
+}
+.pose-info span { color: #fff; font-weight: 700; }
+
+/* ---------- STATUS LOG ---------- */
+#status-log {
+  flex: 1;
+  background: #000;
+  border: 2px solid #fff;
+  padding: 8px;
+  overflow-y: auto;
+  max-height: 450px;
+  font-size: 0.8rem;
+}
+
+#status-log::-webkit-scrollbar { width: 10px; }
+#status-log::-webkit-scrollbar-track { background: #000; }
+#status-log::-webkit-scrollbar-thumb { background: #fff; }
+
+.log-entry {
+  padding: 3px 6px;
+  margin-bottom: 2px;
+  border-left: 4px solid #fff;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.log-entry.info    { border-color: #fff; }
+.log-entry.success { border-color: #fff; background: #111; }
+.log-entry.warning { border-color: #fff; background: #222; }
+.log-entry.error   { border-color: #fff; background: #fff; color: #000; }
+
+.log-time {
+  color: #fff;
+  margin-right: 6px;
+  opacity: 0.6;
+}
+.log-entry.error .log-time { color: #000; opacity: 0.7; }
+
+#clear-log {
+  margin-top: 10px;
+  background: #000;
+  color: #fff;
+  border: 2px solid #fff;
+  padding: 6px 12px;
+  cursor: pointer;
+  font-family: inherit;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  font-weight: 700;
+  font-size: 0.75rem;
+}
+#clear-log:hover { background: #fff; color: #000; }
+
+/* ---------- CONTROLS FOOTER ---------- */
+footer#controls {
+  background: #000;
+  padding: 16px 20px;
+  border-top: 2px solid #fff;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+
+/* Phase Switch */
+.phase-switch {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border: 2px solid #fff;
+  padding: 6px 10px;
+}
+.phase-label {
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  font-size: 0.8rem;
+}
+.phase-label::before { content: '['; }
+.phase-label::after { content: ']'; }
+
+.toggle-group {
+  display: inline-flex;
+  gap: 0;
+}
+.phase-btn {
+  background: #000;
+  color: #fff;
+  border: 2px solid #fff;
+  padding: 6px 18px;
+  font-family: inherit;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+.phase-btn + .phase-btn { border-left: none; }
+.phase-btn.active {
+  background: #fff;
+  color: #000;
+}
+.phase-btn:not(.active):hover { background: #222; }
+
+/* Phase Panels */
+.phase-panel {
+  display: none;
+  width: 100%;
+  max-width: 1000px;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+.phase-panel.active { display: flex; }
+
+.hint {
+  color: #888;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+.hint::before { content: '// '; }
+
+/* Pause Button */
+.big-btn {
+  padding: 18px 80px;
+  font-size: 1rem;
+  font-weight: 700;
+  font-family: inherit;
+  text-transform: uppercase;
+  letter-spacing: 4px;
+  border: 3px solid #fff;
+  background: #000;
+  color: #fff;
+  cursor: pointer;
+}
+.big-btn:hover { background: #fff; color: #000; }
+.big-btn.paused {
+  background: #fff;
+  color: #000;
+}
+.big-btn.paused:hover { background: #000; color: #fff; }
+.big-btn:active { transform: translate(2px, 2px); }
+
+/* ---------- WAYPOINTS ---------- */
+.waypoint-area {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0;
+  width: 100%;
+  border: 2px solid #fff;
+}
+.waypoint-column {
+  display: flex;
+  flex-direction: column;
+  padding: 12px;
+}
+.waypoint-column + .waypoint-column { border-left: 2px solid #fff; }
+
+.waypoint-list {
+  background: #000;
+  border: 1px dashed #fff;
+  padding: 8px;
+  min-height: 200px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  align-content: flex-start;
+}
+.waypoint-list.selected {
+  flex-direction: column;
+  flex-wrap: nowrap;
+  gap: 4px;
+}
+
+.wp-chip {
+  background: #000;
+  color: #fff;
+  border: 2px solid #fff;
+  padding: 6px 14px;
+  cursor: pointer;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  font-size: 0.8rem;
+  user-select: none;
+}
+.wp-chip:hover { background: #fff; color: #000; }
+.wp-chip.used {
+  opacity: 0.25;
+  pointer-events: none;
+  text-decoration: line-through;
+}
+
+.wp-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: #000;
+  border: 2px solid #fff;
+  padding: 6px 10px;
+}
+.wp-row .order {
+  color: #fff;
+  font-weight: 700;
+  min-width: 30px;
+}
+.wp-row .order::before { content: '['; }
+.wp-row .order::after { content: ']'; }
+.wp-row .name {
+  flex: 1;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+.wp-row button {
+  background: #000;
+  color: #fff;
+  border: 2px solid #fff;
+  width: 28px;
+  height: 28px;
+  cursor: pointer;
+  font-size: 0.75rem;
+  font-family: inherit;
+  font-weight: 700;
+}
+.wp-row button:hover { background: #fff; color: #000; }
+.wp-row button.remove { background: #fff; color: #000; }
+.wp-row button.remove:hover { background: #000; color: #fff; }
+
+.waypoint-buttons {
+  display: flex;
+  gap: 0;
+  margin-top: 8px;
+}
+
+.btn {
+  padding: 12px 28px;
+  border: 2px solid #fff;
+  background: #000;
+  color: #fff;
+  font-family: inherit;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+.btn + .btn { border-left: none; }
+.btn:hover { background: #fff; color: #000; }
+.btn.primary { background: #fff; color: #000; }
+.btn.primary:hover { background: #000; color: #fff; }
+
+/* ---------- TEXT SELECTION ---------- */
+::selection { background: #fff; color: #000; }
+
+/* ---------- SCROLLBAR (everything) ---------- */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: #000; }
+::-webkit-scrollbar-thumb { background: #fff; }
+::-webkit-scrollbar-thumb:hover { background: #888; }

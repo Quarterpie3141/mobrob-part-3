@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>tuna</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
+<script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+</head>
+<body>
+  <header>
+    <h1>tuna</h1>
+    <div id="connection-status" class="disconnected">Disconnected</div>
+  </header>
+
+  <main>
+    <section id="minimap-container">
+      <h2>Minimap</h2>
+      <canvas id="minimap" width="500" height="500"></canvas>
+      <div class="pose-info">
+        X: <span id="pose-x">0.00</span> m |
+        Y: <span id="pose-y">0.00</span> m |
+        θ: <span id="pose-theta">0.00</span> rad
+      </div>
+    </section>
+
+    <aside id="status-log-container">
+      <h2>Status Log</h2>
+      <div id="status-log"></div>
+      <button id="clear-log">Clear Log</button>
+    </aside>
+  </main>
+
+  <footer id="controls">
+    <div class="phase-switch">
+      <span class="phase-label">Mode:</span>
+      <div class="toggle-group">
+        <button class="phase-btn active" data-phase="1">Phase 1</button>
+        <button class="phase-btn" data-phase="2">Phase 2</button>
+      </div>
+    </div>
+
+    <!-- PHASE 1: Pause control -->
+    <div id="phase-1-controls" class="phase-panel active">
+      <h2>autonomous run</h2>
+      <button id="pause-btn" class="big-btn pause">⏸ PAUSE</button>
+      <p class="hint">pause run</p>
+    </div>
+
+    <!-- PHASE 2: Waypoint ordering -->
+    <div id="phase-2-controls" class="phase-panel">
+      <h2>waypoints</h2>
+      <div class="waypoint-area">
+        <div class="waypoint-column">
+          <h3>Available</h3>
+          <div id="available-waypoints" class="waypoint-list"></div>
+        </div>
+        <div class="waypoint-column">
+          <h3>Selected Order</h3>
+          <div id="selected-waypoints" class="waypoint-list selected"></div>
+          <p class="hint">reorder ⬆ ⬇, remove ✕</p>
+        </div>
+      </div>
+      <div class="waypoint-buttons">
+        <button id="clear-waypoints" class="btn warn">Clear</button>
+        <button id="send-waypoints" class="btn primary">▶ Send Sequence</button>
+      </div>
+    </div>
+  </footer>
+
+  <script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>
