@@ -67,22 +67,6 @@ class GlobalControllerNode(Node):
         self._publish_state()
         self.get_logger().info(f'Global controller started in state: {self._state.value}')
 
-    def _handle_gnss_fix(self, msg: NavSatFix) -> None:
-        """Captures the first valid GNSS fix as the 'Home' return point."""
-        if self._start_waypoint_added:
-            return
-
-        if not math.isfinite(msg.latitude) or not math.isfinite(msg.longitude):
-            return
-
-        self._start_position = (msg.latitude, msg.longitude, msg.altitude)
-        self._waypoints.append(self._start_position)
-        self._start_waypoint_added = True
-
-        self.get_logger().info(
-            f'[GPS] HOME CAPTURED: lat={msg.latitude}, lon={msg.longitude}. '
-            f'Total waypoints in mission: {len(self._waypoints)}'
-        )
 
     def _handle_slave_status(self, msg: String) -> None:
         command = msg.data.strip().lower()
@@ -101,15 +85,6 @@ class GlobalControllerNode(Node):
 
                 x, y, phi = self._waypoints[self._current_waypoint_index]
                 self._send_nav2_goal(x, y, phi)
-
-
-            # if self._has_waypoints_remaining():
-            #     self._transition_to(ControllerState.DRIVING)
-            #     self._publish_current_goal(force=True)
-            # else:
-            #     self.get_logger().warn('Cannot drive: No waypoints available.')
-            #     self._transition_to(ControllerState.STOPPED)
-            # return
 
         # Advance mission logic
         if self._state == ControllerState.DRIVING and command == 'finished':
