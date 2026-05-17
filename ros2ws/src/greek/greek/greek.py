@@ -13,11 +13,11 @@ class greek(Node):
     def __init__(self):
         super().__init__('greek')
         self.model = get_model(
-        model_id="test-2-150-per/1",
+        model_id="test-2-150-per/4",
         api_key="Kms3xRqZ4JstX4UopFEA"
         )
 
-        self.CLASSES = {'- negative': "alpha", '1': "beta", '2': "delta", '3': "eta", '4': "lambda", '5': "mu", '6': "rho", '7': "tau", '8': "psi", '9': "gamma"}
+        # self.CLASSES = {'- negative': "alpha", '1': "beta", '2': "delta", '3': "eta", '4': "lambda", '5': "mu", '6': "rho", '7': "tau", '8': "psi", '9': "gamma"}
 
         self.bridge = CvBridge()
         self.letter_detection_pub = self.create_publisher(String, 'camera/letter_detection', 10)
@@ -50,7 +50,8 @@ class greek(Node):
                 cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
                 cv2.putText(
                     frame,
-                    f"{self.CLASSES[pred.class_name]} {pred.confidence:.0%}",
+                    # f"{self.CLASSES[pred.class_name]} {pred.confidence:.0%}",
+                    f"{pred.class_name} {pred.confidence:.0%}",
                     (x1, y1 - 8),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2
                     )
