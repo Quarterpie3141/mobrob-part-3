@@ -16,7 +16,7 @@ HARDCODED_WAYPOINTS: List[Tuple[float, float, float]] = [
     (2.0, 0.0, 0.0), 
     (3.0, 0.0, 0.0), 
     (4.0, 0.0, 0.0), 
-    (5.0, -1.2, math.pi / 2),
+    (10.0, 0.0, 0.0),
     (0.0, 0.0, 0.0)
 ]
 
@@ -140,18 +140,19 @@ class GlobalControllerNode(Node):
         self._action_future = self._nav_client.send_goal_async(goal_msg)
         self._action_future.add_done_callback(self._goal_response_callback)
 
-    def _goal_response_callback(self, future) -> None:
-        goal_handle = future.result()
-        if not goal_handle.accepted:
-            self.get_logger().error('Nav2 Goal was rejected by the server!')
-            self._transition_to(ControllerState.STOPPED)
-            return
-
-        self.get_logger().info('Nav2 Goal accepted by server. Driving...')
-        self._goal_handle = goal_handle
+    def _goal_response_callback(self, future):
+        status = future.result().status
         
-        self._action_future = goal_handle.get_result_async()
-        self._action_future.add_done_callback(self._goal_result_callback)
+        # We increment the index NO MATTER WHAT happened
+        self._current_waypoint_index += 1
+        
+        if self._current_waypoint_index < len(self._waypoints):
+            self.get_logger().warn(f"Goal finished with status {status}. Moving to waypoint {self._current_waypoint_index + 1}")
+            self._state = ControllerState.DRIVING
+            self.send_next_goal() 
+        else:
+            self.get_logger().info("Finished all waypoints in the list.")
+            self._state = ControllerState.STOPPED
 
     def _goal_result_callback(self, future) -> None:
         if self._state != ControllerState.DRIVING:
