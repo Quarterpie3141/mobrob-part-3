@@ -30,7 +30,7 @@ setup(
     },
     entry_points={
         'console_scripts': [
-            'cv_node = cv.CAM:main',
+            'cv_node = cv.camera:main',
             'cam_imu_node = cv.imu:main',
         ],
     },

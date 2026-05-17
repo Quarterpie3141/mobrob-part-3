@@ -57,7 +57,7 @@ class DepthAICameraNode(Node):
 
         #END TESTING STUFF
 
-        weights = os.path.join(self.modeldir, "part3v1.pt")
+        weights = os.path.join(self.modeldir, "part3v2.pt")
         self.model = ultralytics.YOLO(weights)
         self.label_map = self.model.names
 
