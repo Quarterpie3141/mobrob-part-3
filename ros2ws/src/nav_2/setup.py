@@ -27,6 +27,7 @@ setup(
     },
     entry_points={
         'console_scripts': [ 'cmd_vel_relay = nav_2.cmd_vel_relay:main',
+        'nav2DriveToWaypoint = nav_2.nav2DriveToWaypoint:main',
         ],
     },
 )

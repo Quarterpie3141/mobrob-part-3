@@ -204,6 +204,20 @@ def generate_launch_description():
     )
 
 
+    nav_script_node = Node(
+        package='nav_2',
+        executable='nav2DriveToWaypoint.py', # The name defined in your setup.py entry_points
+        name='waypoint_sender',
+        output='screen',
+        condition=IfCondition(is_nav_or_slam_nav),
+    )
+
+    # Wrap it in a timer so it waits for Nav2 to finish its lifecycle startup
+    delayed_nav_script = TimerAction(
+        period=15.0, # Wait 15 seconds for Nav2 to be fully ready
+        actions=[nav_script_node]
+    )
+
     # rviz = Node(
     #     package='rviz2',
     #     executable='rviz2',
@@ -224,7 +238,7 @@ def generate_launch_description():
         slam_toolbox,
         slam_lifecycle,
         map_server,
-        amcl,
+        #amcl,
         controller_server,
         planner_server,
         behavior_server,
@@ -233,5 +247,5 @@ def generate_launch_description():
         velocity_smoother,
         lifecycle_manager_map,
         lifecycle_manager_nav,
-
+        #delayed_nav_script,
     ])
