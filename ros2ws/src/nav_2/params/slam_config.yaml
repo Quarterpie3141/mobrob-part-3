@@ -1,0 +1,17 @@
+slam_toolbox:
+  ros__parameters:
+    base_frame: base_link
+    odom_frame: odom
+    scan_topic: /scan
+    map_frame: map
+    map_update_interval: 2.0
+    resolution: 0.05
+    # How far robot must move before adding a new scan node
+    minimum_travel_distance: 0.2   # metres
+    minimum_travel_heading: 0.2    # radians
+
+    # How far back in time to match scans
+    scan_buffer_size: 10
+    scan_buffer_maximum_scan_distance: 10.0
+    map_update_interval: 0.5
+    mode: mapping

@@ -110,26 +110,24 @@ services:
     privileged: true
     volumes:
       - /dev:/dev
-
-  # mobrob_image_publisher:
-  #   build: 
-  #     context: .
-  #     dockerfile: dockerfiles/image_publisherDockerfile
-  #   pull_policy: build
-  #   network_mode: host
-  #   stdin_open: true
-  #   tty: true
-  #   privileged: true
-  #   volumes:
-  #     - /dev:/dev
-  #     - /dev/bus/usb:/dev/bus/usb
-  #   device_cgroup_rules:
-  #     - 'c 189:* rmw'
-
-  mobrob_image_publisher:
+      
+  mobrob_nav2:
+    build:
+      context: .
+      dockerfile: dockerfiles/nav2Dockerfile
+    pull_policy: build
+    network_mode: host
+    stdin_open: true
+    tty: true
+    privileged: true
+    volumes:
+      - /dev:/dev
+   
+   mobrob_image_publisher:
     build:
       context: .
       dockerfile: dockerfiles/image_publisherDockerfile
+    pull_policy: build
     network_mode: host
     stdin_open: true
     tty: true
@@ -138,13 +136,24 @@ services:
       - /dev:/dev
       - /dev/bus/usb:/dev/bus/usb
     device_cgroup_rules:
-      - 'c 189:* rmw'
-    # command: tail -f /dev/null 
-
-  mobrob_greek:
-    build: 
+      
+      
+   mobrob_gui:
+    build:
       context: .
-      dockerfile: dockerfiles/greekDockerfile
+      dockerfile: dockerfiles/guiDockerfile
+    pull_policy: build
+    network_mode: host
+    stdin_open: true
+    tty: true
+    privileged: true
+    volumes:
+      - /dev:/dev
+  
+  mobrob_gui:
+    build:
+      context: .
+      dockerfile: dockerfiles/guiDockerfile
     pull_policy: build
     network_mode: host
     stdin_open: true
