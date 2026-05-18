@@ -18,11 +18,11 @@ import cv2
 import numpy as np
 
 HARDCODED_WAYPOINTS: List[Tuple[float, float, float]] = [
-    (1.0, 0.0, 0.0), 
-    (2.0, 0.0, 0.0), 
-    (3.0, 0.0, 0.0), 
-    (4.0, 0.0, 0.0), 
-    (10.0, 0.0, 0.0),
+    (5.0, 0.0, 0.0), 
+    (10.0, 1.0, 0.785), 
+    (5.0, 0.0, 0.0), 
+    (0.0, 0.0, 0.0), 
+    (-5.0, 0.0, -0.785),
     (0.0, 0.0, 0.0)
 ]
 
@@ -67,7 +67,7 @@ class GlobalControllerNode(Node):
         self._action_future = None
 
         # status publish
-        self._master_status_pub = self.create_publisher(String, '/master/status', 10)
+        self._gui_nav2_goal_pub = self.create_publisher(String, '/gui/nav2_goal', 10)
         
         self.create_subscription(String, '/slave/status', self._handle_slave_status, 10)
 
@@ -159,7 +159,7 @@ class GlobalControllerNode(Node):
         goal_msg.pose.pose.orientation.w = qw
 
         self.get_logger().info(f'[NAV2 GOAL] Sending Target Index {self._current_waypoint_index}: X={x}, Y={y}, Phi={phi}')
-        
+        self._gui_nav2_goal_pub.publish(String(data=f'{x},{y},{phi}'))
         self._action_future = self._nav_client.send_goal_async(goal_msg)
         self._action_future.add_done_callback(self._goal_response_callback)
 
@@ -171,6 +171,7 @@ class GlobalControllerNode(Node):
             
             self._result_future = self._goal_handle.get_result_async()
             self._result_future.add_done_callback(self._get_result_callback)
+    
     def _get_result_callback(self, future):
             status = future.result().status
             
@@ -183,7 +184,7 @@ class GlobalControllerNode(Node):
                     self.get_logger().info('Mission Complete!')
                     self._transition_to(ControllerState.STOPPED)
             
-            elif status == GoalStatus.STATUS_ABORTED: # This is your Status 6 (Timeout/CPU la#g)
+            elif status == GoalStatus.STATUS_ABORTED: 
                 self.get_logger().warn('Nav2 Aborted (Status 6). Likely a CPU/Timeout spike. Retrying...')
                 # DO NOT transition to WAITING. 
                 # Use a timer to retry so we don't spam the server instantly
@@ -192,9 +193,11 @@ class GlobalControllerNode(Node):
                 # For other failures (Canceled, etc.), now we can halt
                 self.get_logger().error(f'Goal failed with status code: {status}. Mission Halted.')
                 self._transition_to(ControllerState.WAITING)
+    
     def _handle_oneshot_retry(self):
         self.retry_timer.cancel()  # Kill it immediately so it only runs once
         self._retry_current_waypoint()
+    
     def _retry_current_waypoint(self):
         """Helper to resend the goal without resetting the mission."""
         self.get_logger().info(f'Retrying waypoint {self._current_waypoint_index + 1}...')

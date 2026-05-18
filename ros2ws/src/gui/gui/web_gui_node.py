@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 import rclpy
 from rclpy.node import Node
-from geometry_msgs.msg import Twist, PoseStamped
+from geometry_msgs.msg import PoseWithCovarianceStamped
+from tf_transformations import euler_from_quaternion
 from std_msgs.msg import Bool, String
-from nav_msgs.msg import Odometry
 from flask import Flask, render_template
 from nav_msgs.msg import OccupancyGrid
 import numpy as np
@@ -19,7 +19,7 @@ pkg_share = get_package_share_directory('gui')
 app = Flask(__name__,
             template_folder=os.path.join(pkg_share, 'templates'),
             static_folder=os.path.join(pkg_share, 'static'))
-app.config['SECRET_KEY'] = 'ros2webgui'
+app.config['SECRET_KEY'] = 'tuna'
 socketio = SocketIO(app, cors_allowed_origins="*", async_mode='threading')
 
 
@@ -37,12 +37,24 @@ class WebGuiNode(Node):
 
         # Subscribers
         # goota subscribe to map and pose to show the robot on the map
-        self.odom_sub = self.create_subscription(
-            Odometry, '/odom', self.odom_callback, 10)
+        self.baselink_sub = self.create_subscription(
+            PoseWithCovarianceStamped, '/pose', self.baselink_callback, 10)
+        
+        self.poi_sub = self.create_subscription(
+            String, '/poi', self.poi_callback, 10
+        )
+
         self.costmap_sub = self.create_subscription(
             OccupancyGrid,
-            '/global_costmap/costmap',
+            '/map',
             self.costmap_callback,
+            10
+        )
+
+        self.nav2_goal_sub = self.create_subscription(
+            String,
+            '/gui/nav2_goal',
+            self.nav2_goal_callback,
             10
         )
 
@@ -63,12 +75,17 @@ class WebGuiNode(Node):
         self.log_to_web('ROS 2 Web GUI Node initialized', 'info')
 
 
-    def odom_callback(self, msg):
+    def baselink_callback(self, msg):
+
+        orientation_list = [msg.pose.pose.orientation.x, msg.pose.pose.orientation.y, msg.pose.pose.orientation.z, msg.pose.pose.orientation.w]
+        _, _, yaw = euler_from_quaternion(orientation_list)
+
         socketio.emit('robot_pose', {
             'x': msg.pose.pose.position.x,
             'y': msg.pose.pose.position.y,
-            'theta': 0.0
+            'theta': yaw
         })
+
 
     def costmap_callback(self, msg):
       # Throttling 
@@ -93,6 +110,22 @@ class WebGuiNode(Node):
           'origin_y': origin_y,
           'data': data, 
       })
+
+    def poi_callback(self, msg):
+        # poi is a string of the format 
+        socketio.emit('poi_update', {'poi': msg.data})
+
+    def nav2_goal_callback(self, msg):
+        # msg.data is a string of the format "x,y,phi"
+        try:
+            x_str, y_str, phi_str = msg.data.split(',')
+            x = float(x_str)
+            y = float(y_str)
+            phi = float(phi_str)
+            socketio.emit('nav2_goal', {'x': x, 'y': y, 'phi': phi})
+        except Exception as e:
+            self.get_logger().error(f'Failed to parse Nav2 goal: {e}')
+
     def set_phase(self, phase):
         if phase not in (1, 2):
             self.log_to_web(f'Invalid phase: {phase}', 'error')
@@ -112,7 +145,6 @@ class WebGuiNode(Node):
         level = 'warning' if self.is_paused else 'success'
         self.log_to_web(f'Robot {state}', level)
         return self.is_paused
-
 
     def send_waypoint_sequence(self, sequence):
         # Validate
