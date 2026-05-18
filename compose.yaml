@@ -1,5 +1,5 @@
 services:
-  mobrob_aria:
+  mobrob_aria2:
     build:
       context: .
       dockerfile: dockerfiles/ariaDockerfile
@@ -13,7 +13,7 @@ services:
     volumes:
       - /dev:/dev
 
-  mobrob_ctrl:
+  mobrob_ctrl2:
     build:
       context: .
       dockerfile: dockerfiles/ctrlDockerfile
@@ -25,7 +25,7 @@ services:
     volumes:
       - /dev:/dev
 
-  mobrob_cv:
+  mobrob_cv2:
     build:
       context: .
       dockerfile: dockerfiles/CVDockerfile
@@ -38,7 +38,7 @@ services:
       - /dev:/dev
       - /home/team8/Documents:/opt/ros2ws/src/cv/img
 
-  mobrob_basic_drive:
+  mobrob_basic_drive2:
     build:
       context: .
       dockerfile: dockerfiles/basicdriveDockerfile
@@ -50,7 +50,7 @@ services:
     volumes:
       - /dev:/dev
 
-  mobrob_global_controller:
+  mobrob_global_controller2:
     build:
       context: .
       dockerfile: dockerfiles/globalcontrollerDockerfile
@@ -63,7 +63,7 @@ services:
     volumes:
       - /dev:/dev
 
-  mobrob_ekf:
+  mobrob_ekf2:
     build:
       context: .
       dockerfile: dockerfiles/Sensors/EKFDockerfile
@@ -75,19 +75,7 @@ services:
     volumes:
       - /dev:/dev
 
-  mobrob_gps:
-    build:
-      context: .
-      dockerfile: dockerfiles/Sensors/GPSDockerfile
-    pull_policy: build
-    network_mode: host
-    stdin_open: true
-    tty: true
-    privileged: true
-    volumes:
-      - /dev:/dev
-
-  mobrob_imu:
+  mobrob_imu2:
     build:
       context: .
       dockerfile: dockerfiles/Sensors/IMUDockerfile
@@ -99,7 +87,7 @@ services:
     volumes:
       - /dev:/dev
 
-  mobrob_sick:
+  mobrob_sick2:
     build:
       context: .
       dockerfile: dockerfiles/Sensors/SICKScanDockerfile
@@ -111,7 +99,7 @@ services:
     volumes:
       - /dev:/dev
       
-  mobrob_nav2:
+  mobrob_nav3:
     build:
       context: .
       dockerfile: dockerfiles/nav2Dockerfile
@@ -123,35 +111,35 @@ services:
     volumes:
       - /dev:/dev
    
-  mobrob_image_publisher:
-   build:
-     context: .
-     dockerfile: dockerfiles/image_publisherDockerfile
-   pull_policy: build
-   network_mode: host
-   stdin_open: true
-   tty: true
-   privileged: true
-   volumes:
-     - /dev:/dev
-     - /dev/bus/usb:/dev/bus/usb
-   device_cgroup_rules:
-     - 'c 189:* rmw'
+  # mobrob_image_publisher:
+  #  build:
+  #    context: .
+  #    dockerfile: dockerfiles/image_publisherDockerfile
+  #  pull_policy: build
+  #  network_mode: host
+  #  stdin_open: true
+  #  tty: true
+  #  privileged: true
+  #  volumes:
+  #    - /dev:/dev
+  #    - /dev/bus/usb:/dev/bus/usb
+  #  device_cgroup_rules:
+  #    - 'c 189:* rmw'
       
       
-   mobrob_greek:
-    build:
-      context: .
-      dockerfile: dockerfiles/greekDockerfile
-    pull_policy: build
-    network_mode: host
-    stdin_open: true
-    tty: true
-    privileged: true
-    volumes:
-      - /dev:/dev
+  # #  mobrob_greek:
+  #   build:
+  #     context: .
+  #     dockerfile: dockerfiles/greekDockerfile
+  #   pull_policy: build
+  #   network_mode: host
+  #   stdin_open: true
+  #   tty: true
+  #   privileged: true
+  #   volumes:
+  #     - /dev:/dev
   
-  mobrob_gui:
+  mobrob_gui2:
     build:
       context: .
       dockerfile: dockerfiles/guiDockerfile
