@@ -10,7 +10,7 @@ from std_msgs.msg import String
 # Nav2 Additions
 from rclpy.action import ActionClient
 from nav2_msgs.action import NavigateToPose 
-from action_msgs.msg import GoalStatus # Add this import at the top
+from action_msgs.msg import GoalStatus 
 from nav_msgs.msg import OccupancyGrid
 from slam_toolbox.srv import Pause 
 
@@ -20,7 +20,7 @@ import math
 
 HARDCODED_WAYPOINTS: List[Tuple[float, float, float]] = [
     (0.0, 0.0, 0.0), 
-    (1.0, 0.0, 0.0), 
+    (0.0, 0.0, 0.0), 
     # (10.0, 0.0, 3.141), 
     # (5.0, 0.0, 3.141), 
     # (0.0, 0.0, 3.141), 
@@ -96,22 +96,26 @@ class GlobalControllerNode(Node):
         self._publish_state()
         self.get_logger().info(f'Global controller started in state: {self._state.value}')
 
-        #BLOCK SLAM FLOW OF DATA SO THAT IT CANT DO SHIT 
-        #its scuffed but eh
-        self.pause_slam = self.create_client(Pause, 'slam_toolbox/pause_new_measurements')
-        while not self.pause_slam.wait_for_service(timeout_sec=1.0):
-            self.get_logger().info('Waiting for slam_toolbox pause service...')
-        
-        self.localization_mode_active = False
-        self.timer = self.create_timer(0.5, self.control_loop)
+
+        # new localisation code 
+        self.localisation_mode_active = False
+        self.slam_service_ready = False
+
+        self.pause_slam_client = self.create_client(Pause, '/slam_toolbox/pause_new_measurements')
+
+        self.service_check_timer = self.create_timer(1.0, self.check_slam_service)
+    def check_slam_service(self):
+        """Asynchronously checks if slam_toolbox service is online."""
+        if self.pause_slam_client.service_is_ready():
+            self.get_logger().info('SLAM Pause service detected and fully ready!')
+            self.slam_service_ready = True
+            self.service_check_timer.destroy()  # Stops the timer once found
+        else:
+            self.get_logger().info('Waiting asynchronously for /slam_toolbox/pause_new_measurements...')
 
     def _handle_slave_status(self, msg: String) -> None:
         command = msg.data.strip().lower()
-        # logging this every time can flood the console, but good for now
-        # self.get_logger().info(f'Received /slave/status: {command}')
 
-        # FIX: Only allow the 'waiting' command to reset the mission if we aren't 
-        # currently in the middle of an active Nav2 goal.
         if command == 'waiting':
             if self._state != ControllerState.DRIVING:
                 self._cancel_current_nav_goal()
@@ -194,12 +198,12 @@ class GlobalControllerNode(Node):
                     self._send_nav2_goal()
                 else:
                     self.get_logger().info('Mission Complete!')
-                    self._transition_to(ControllerState.STOPPED)
-                #stop mapping    
-                    map_is_done_condition = True 
-                    if map_is_done_condition and not self.localization_mode_active:
-                        self.trigger_slam_pause()
-                
+                    self._transition_to(ControllerState.WAITING)
+                    
+                    # Safely fires off the transition only if the background check passed
+                    if self.slam_service_ready and not self.localisation_mode_active:
+                                        self.trigger_slam_pause()
+                            
                 
             
             elif status == GoalStatus.STATUS_ABORTED: 
@@ -215,7 +219,7 @@ class GlobalControllerNode(Node):
 
     def trigger_slam_pause(self):
             self.get_logger().info('Sending pause request to slam_toolbox...')
-            self.localization_mode_active = True # Prevent duplicate calls
+            self.localisation_mode_active = True # Prevent duplicate calls
             
             request = Pause.Request()
             
@@ -226,15 +230,12 @@ class GlobalControllerNode(Node):
     def slam_pause_callback(self, future):
             try:
                 response = future.result()
-                # If we reach this line, slam_toolbox successfully froze the map
-                self.get_logger().info('SLAM is now strictly localizing on the fixed map!')
+                self.get_logger().info('SLAM is now strictly localising on the fixed map!')
                 
-                # 5. EXECUTE POST-TRANSITION LOGIC HERE
-                # E.g., signal your navigation tasks to start the next phase
-                
+
             except Exception as e:
                 self.get_logger().error(f'Failed to pause mapping: {e}')
-                self.localization_mode_active = False # Reset flag to retry if needed
+                self.localisation_mode_active = False # Reset flag to retry if needed
 
 
     def _handle_oneshot_retry(self):
@@ -300,9 +301,6 @@ class GlobalControllerNode(Node):
 
     def _handle_phase(self, msg: String) -> None:
         self.phase = msg.data
-        # if self.phase == 'phase_2' and self.objects_isolated == False:
-        #     self.objects_isolated = True
-        #     self.isolate_objects()
         self.get_logger().info(f'Received phase update: {self.phase}')
 
         if self.phase == 'phase_2':
