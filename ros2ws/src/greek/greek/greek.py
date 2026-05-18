@@ -41,7 +41,7 @@ class greek(Node):
             return
         # Draw detections
         for pred in results.predictions:
-            if pred.confidence > 0.8:
+            if pred.confidence > 0.5:
                 x1 = int(pred.x - pred.width / 2)
                 y1 = int(pred.y - pred.height / 2)
                 x2 = int(pred.x + pred.width / 2)
@@ -58,8 +58,12 @@ class greek(Node):
                 
                 predicted_letter = pred.class_name
                 self.letter_detection_pub.publish(String(data=predicted_letter))
+                self.letter_detection_pub.publish(String(data=str(pred.confidence)))
+
             else:
                 self.letter_detection_pub.publish(String(data="confidece too low"))
+                self.letter_detection_pub.publish(String(data=str(pred.confidence)))
+            
 
             
 

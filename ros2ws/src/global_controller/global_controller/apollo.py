@@ -303,8 +303,15 @@ class GlobalControllerNode(Node):
                 cx_m = centroids[i][0] * res + costmap.info.origin.position.x
                 cy_m = centroids[i][1] * res + costmap.info.origin.position.y
 
+            
                 if abs(cx_m) < 10 and abs(cy_m) < 7 and math.sqrt(cx_m**2 + cy_m**2) < 11.0: # sanity check to filter out bad detections near the robot
-                    object_positions.append((cx_m, cy_m, 0.0))
+                    if len(object_positions) == 0:
+                        object_positions.append((cx_m, cy_m, 0.0))
+                    else: 
+                        if math.sqrt((object_positions[-1][0] - cx_m)**2  +  (object_positions[-1][1] - cy_m)**2) > 0.80:
+                            object_positions.append((cx_m, cy_m, 0.0))
+
+
 
         for i in object_positions:
             self._waypoints.append((i[0], i[1], i[2]))

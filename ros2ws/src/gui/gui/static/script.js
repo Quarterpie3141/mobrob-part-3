@@ -271,7 +271,7 @@ function drawMinimap() {
         const ppy = h - (pCellY / ch) * h;
       
         // outer ring
-        ctx.strokeStyle = '#D25C76';
+        ctx.strokeStyle = '#5E81E0';
         ctx.lineWidth = 2;
         ctx.beginPath();
         ctx.arc(ppx, ppy, 8, 0, Math.PI * 2);
@@ -280,17 +280,8 @@ function drawMinimap() {
         // inner dot
         ctx.fillStyle = '#D25C76';
         ctx.beginPath();
-        ctx.arc(ppx, ppy, 2.5, 0, Math.PI * 2);
+        ctx.arc(ppx, ppy, 1.5, 0, Math.PI * 2);
         ctx.fill();
-      
-        // heading indicator
-        ctx.strokeStyle = '#D25C76';
-        ctx.lineWidth = 1.5;
-        ctx.beginPath();
-        ctx.moveTo(ppx, ppy);
-        ctx.lineTo(ppx + Math.cos(poi.phi) * 14,
-                   ppy - Math.sin(poi.phi) * 14);
-        ctx.stroke();
       
         // label
         ctx.fillStyle = '#D25C76';
