@@ -38,18 +38,6 @@ services:
       - /dev:/dev
       - /home/team8/Documents:/opt/ros2ws/src/cv/img
 
-  mobrob_basic_drive2:
-    build:
-      context: .
-      dockerfile: dockerfiles/basicdriveDockerfile
-    pull_policy: build
-    network_mode: host
-    stdin_open: true
-    tty: true
-    privileged: true
-    volumes:
-      - /dev:/dev
-
   mobrob_global_controller2:
     build:
       context: .

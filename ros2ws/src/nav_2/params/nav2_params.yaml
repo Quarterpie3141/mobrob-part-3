@@ -57,9 +57,9 @@ controller_server:
         - GoalCritic
         - GoalAngleCritic
         - PathAlignCritic
-        - PathFollowCritic
-        - PathAngleCritic
         - PreferForwardCritic
+        - PathFollowCritic
+        - PathAngleCritic 
       ConstraintCritic:
         enabled: true
         cost_power: 1

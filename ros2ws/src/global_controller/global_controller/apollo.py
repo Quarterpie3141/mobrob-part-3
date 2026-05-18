@@ -16,13 +16,14 @@ from nav_msgs.msg import OccupancyGrid
 
 import cv2
 import numpy as np
+import math
 
 HARDCODED_WAYPOINTS: List[Tuple[float, float, float]] = [
     (5.0, 0.0, 0.0), 
-    (10.0, 1.0, 0.785), 
-    (5.0, 0.0, 0.0), 
-    (0.0, 0.0, 0.0), 
-    (-5.0, 0.0, -0.785),
+    (10.0, 0.0, 3.141), 
+    (5.0, 0.0, 3.141), 
+    (0.0, 0.0, 3.141), 
+    (-5.0, 0.0, 0.0),
     (0.0, 0.0, 0.0)
 ]
 
@@ -68,11 +69,12 @@ class GlobalControllerNode(Node):
 
         # status publish
         self._gui_nav2_goal_pub = self.create_publisher(String, '/gui/nav2_goal', 10)
+        self._master_status_pub = self.create_publisher(String, '/master/status', 10)
         
         self.create_subscription(String, '/slave/status', self._handle_slave_status, 10)
 
         #cost map sub
-        self.create_subscription(OccupancyGrid, '/global_costmap/costmap', self._handle_costmap, 10)
+        self.create_subscription(OccupancyGrid, '/map', self._handle_costmap, 10)
         self.costmap_data = None
 
         #isolated objects pub
@@ -251,20 +253,24 @@ class GlobalControllerNode(Node):
     def _has_waypoints_remaining(self) -> bool:
         return self._current_waypoint_index < len(self._waypoints)
 
-
     def _handle_costmap(self, msg: OccupancyGrid) -> None:
         self.costmap_data = msg
+        self.get_logger().info('Received new costmap data.')
 
     def _handle_phase(self, msg: String) -> None:
-        self.phase = msg
+        self.phase = msg.data
         # if self.phase == 'phase_2' and self.objects_isolated == False:
         #     self.objects_isolated = True
         #     self.isolate_objects()
+        self.get_logger().info(f'Received phase update: {self.phase}')
+
         if self.phase == 'phase_2':
+            self.get_logger().info('Phase 2 detected. Starting object isolation.')
             self.isolate_objects()
 
 
     def isolate_objects(self):
+        self.get_logger().info('Isolating objects from costmap...')
         costmap = self.costmap_data
         object_positions = []
         #conver to binary image
@@ -277,10 +283,14 @@ class GlobalControllerNode(Node):
         img[grid == -1]  = 0        # unknown   → black (or 127 if you want it visible)
         _, binary = cv2.threshold(img, 250, 255, cv2.THRESH_BINARY)
 
+                
+        kernel = np.ones((3, 3), np.uint8)
+        # dilated = cv2.dilate(binary, kernel, iterations=1)
+       
         num_labels, labels, stats, centroids = cv2.connectedComponentsWithStats(binary)
 
         #Apply minimum area
-        min_area = 10
+        min_area = 5
         max_area = 100
         for i in range(1, num_labels):
             if stats[i, cv2.CC_STAT_AREA] > min_area and stats[i, cv2.CC_STAT_AREA] < max_area:
@@ -292,10 +302,14 @@ class GlobalControllerNode(Node):
 
                 cx_m = centroids[i][0] * res + costmap.info.origin.position.x
                 cy_m = centroids[i][1] * res + costmap.info.origin.position.y
-                object_positions.append((cx_m, cy_m, 0.0))
+
+                if abs(cx_m) < 10 and abs(cy_m) < 7 and math.sqrt(cx_m**2 + cy_m**2) < 11.0: # sanity check to filter out bad detections near the robot
+                    object_positions.append((cx_m, cy_m, 0.0))
+
         for i in object_positions:
-            HARDCODED_WAYPOINTS.append((i[0], i[1], i[2]))
+            self._waypoints.append((i[0], i[1], i[2]))
         s = str([{'x': x, 'y': y, 'phi': phi} for x, y, phi in object_positions])
+        self.get_logger().info(f'publishing isolated objects: {s}')
         self.isolated_objects_pub.publish(String(data=s))
 
     

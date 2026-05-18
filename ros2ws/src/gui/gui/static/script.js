@@ -6,6 +6,7 @@ const canvas = document.getElementById('minimap');
 const ctx = canvas.getContext('2d');
 
 let robotPose = { x: 0, y: 0, theta: 0 };
+let currentGoal = null;
 let pois = [];  // Array of { x, y, phi }
 const trail = [];
 const MAX_TRAIL = 200;
@@ -13,7 +14,6 @@ const SCALE = 20;
 
 let currentPhase = 1;
 let isPaused = false;
-let goalpose = null;
 let availableWaypoints = [];
 let selectedSequence = [];
 
@@ -66,7 +66,7 @@ socket.on('pause_state', (data) => {
 });
 
 socket.on('nav2_goal', (data) => {
-  goalpose = data;
+  currentGoal = data;
   addLog(`Heading to new goal: (${data.x.toFixed(2)}, ${data.y.toFixed(2)}, φ=${data.phi.toFixed(2)})`, 'info');
   drawMinimap();
 });
