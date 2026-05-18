@@ -8,7 +8,6 @@ ENV DEBIAN_FRONTEND=noninteractive
 ENV ROS_DOMAIN_ID=8
 ENV RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
 ENV CYCLONEDDS_URI="<CycloneDDS><Domain><General><Interfaces><NetworkInterface name=\"wlp0s20f3\"/></Interfaces></General></Domain></CycloneDDS>"
-
 #install ROS2 jazzy
 RUN apt update && apt install curl -y
 RUN export ROS_APT_SOURCE_VERSION=$(curl -s https://api.github.com/repos/ros-infrastructure/ros-apt-source/releases/latest | grep -F "tag_name" | awk -F'"' '{print $4}')
@@ -17,18 +16,15 @@ RUN dpkg -i /tmp/ros2-apt-source.deb
 RUN apt update
 RUN apt upgrade -y
 RUN apt install ros-jazzy-ros-base -y
-
 #cyclone 
 RUN apt install ros-jazzy-rmw-cyclonedds-cpp -y
 ENV RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
 ENV CYCLONEDDS_URI="<CycloneDDS><Domain><General><Interfaces><NetworkInterface name=\"wlp0s20f3\"/></Interfaces></General></Domain></CycloneDDS>" 
 #wlp0s20f3
-
 # Source ROS on container start
 SHELL ["/bin/bash", "-c"]
 RUN echo "source /opt/ros/jazzy/setup.bash" >> ~/.bashrc
 ENV ROS_DOMAIN_ID=8
-
 # build essentials & ROS tools
 RUN apt install git -y
 RUN apt install build-essential -y
@@ -40,32 +36,24 @@ RUN apt install python3-colcon-common-extensions -y
 RUN apt install libboost-all-dev -y
 RUN apt install python3-pip -y
 RUN apt install libusb-1.0-0-dev -y
-
 #depthai
 RUN python3 -m pip install depthai --break-system-packages
-
 RUN apt update && apt install -y python3-pip python3-venv
-
 RUN python3 -m venv /opt/venv --system-site-packages
 ENV PATH="/opt/venv/bin:$PATH"
-
 RUN /opt/venv/bin/pip install --upgrade pip setuptools wheel
-RUN /opt/venv/bin/pip install "numpy<2"
 RUN /opt/venv/bin/pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
 RUN /opt/venv/bin/pip install ultralytics --break-system-packages
-
+RUN /opt/venv/bin/pip install "numpy<2"
 #RUN mkdir -p /opt/ros2ws/models && curl -L "https://artifacts.luxonis.com/artifactory/luxonis-python-snapshot-local/depthai_sdk/yolov6n_coco_640x640.blob" -o /opt/ros2ws/models/yolov6n.blob
 #cv_bridge
 RUN apt install ros-jazzy-cv-bridge -y
 RUN apt install ros-jazzy-vision-msgs -y
-
 #copy src dir and setup workspace
 COPY ros2ws /opt/ros2ws
 WORKDIR /opt/ros2ws
 RUN chmod 777 -R /opt/ros2ws
-
 #build all packages in the workspace
 RUN . /opt/ros/jazzy/setup.bash && /opt/venv/bin/python -m colcon build --packages-select cv --symlink-install 
 RUN echo "source /opt/ros2ws/install/setup.bash" >> ~/.bashrc
-#RUN source /opt/ros/jazzy/setup.bash && source /opt/ros2ws/install/setup.bash && ros2 run depthai_ros_publisher camera_node.py
 CMD ["bash", "-lc", "source /opt/venv/bin/activate && source /opt/ros/jazzy/setup.bash && source /opt/ros2ws/install/setup.bash && ros2 run cv cv_node"]
