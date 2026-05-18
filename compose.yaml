@@ -58,7 +58,7 @@ services:
     network_mode: host
     stdin_open: true
     tty: true
-    privileged: true
+    privileged: true 
     restart: unless-stopped
     volumes:
       - /dev:/dev
