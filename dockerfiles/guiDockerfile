@@ -1,0 +1,41 @@
+FROM ubuntu:24.04
+
+RUN apt-get update && apt-get install -y software-properties-common curl
+RUN add-apt-repository universe
+RUN curl -L -o /tmp/ros2-apt-source.deb "https://github.com/ros-infrastructure/ros-apt-source/releases/download/1.1.0/ros2-apt-source_1.1.0.$(. /etc/os-release && echo ${UBUNTU_CODENAME:-${VERSION_CODENAME}})_all.deb"
+RUN dpkg -i /tmp/ros2-apt-source.deb
+
+RUN apt-get update && apt-get install -y \
+    ros-jazzy-ros-base \
+    python3-colcon-common-extensions \
+    ros-jazzy-foxglove-bridge \
+    python3-pip \
+    python3-venv \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN rm -rf /var/lib/apt/lists/* /tmp/ros2-apt-source.deb
+
+RUN echo "source /opt/ros/jazzy/setup.bash" >> ~/.bashrc
+
+WORKDIR /opt/ros2ws
+
+RUN mkdir -p /opt/ros2ws/src
+
+COPY ros2ws/src/gui /opt/ros2ws/src/gui
+
+SHELL ["/bin/bash", "-c"]
+
+RUN pip install flask flask-socketio eventlet flask-cors \
+    --break-system-packages --ignore-installed blinker
+
+RUN source /opt/ros/jazzy/setup.bash && colcon build --packages-select gui gui
+
+RUN echo "source /opt/ros2ws/install/setup.bash" >> ~/.bashrc
+
+ENV DEBIAN_FRONTEND=noninteractive
+ENV ROS_DOMAIN_ID=8
+
+# Document that the container uses port 5000 (informational only with host networking)
+EXPOSE 5000
+
+CMD ["bash", "-lc", "source /opt/ros/jazzy/setup.bash && source /opt/ros2ws/install/setup.bash && ros2 launch gui gui_launch.py && ros2 launch foxglove_bridge foxglove_bridge_launch.xml"]
