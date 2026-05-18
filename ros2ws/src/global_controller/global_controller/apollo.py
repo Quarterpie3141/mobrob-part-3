@@ -75,6 +75,10 @@ class GlobalControllerNode(Node):
         self.create_subscription(OccupancyGrid, '/global_costmap/costmap', self._handle_costmap, 10)
         self.isolated_objects_pub = self.create_publisher(String, '/master/status', 10)
         self.costmap_data = None
+
+        #isolated objects pub
+        self.isolated_objects_pub = self.create_publisher(String, '/poi', 10)
+        self.objects_isolated = False
         
         #phase
         self.create_subscription(String, '/phase', self._handle_phase, 10)
@@ -251,6 +255,9 @@ class GlobalControllerNode(Node):
 
     def _handle_phase(self, msg: String) -> None:
         self.phase = msg
+        # if self.phase == 'phase_2' and self.objects_isolated == False:
+        #     self.objects_isolated = True
+        #     self.isolate_objects()
         if self.phase == 'phase_2':
             self.isolate_objects()
 
@@ -272,7 +279,7 @@ class GlobalControllerNode(Node):
 
         #Apply minimum area
         min_area = 10
-        max_area = 1000
+        max_area = 100
         for i in range(1, num_labels):
             if stats[i, cv2.CC_STAT_AREA] > min_area and stats[i, cv2.CC_STAT_AREA] < max_area:
                 #find x,y coords
@@ -283,9 +290,11 @@ class GlobalControllerNode(Node):
 
                 cx_m = centroids[i][0] * res + costmap.info.origin.position.x
                 cy_m = centroids[i][1] * res + costmap.info.origin.position.y
-                object_positions.append((cx_m, cy_m))
+                object_positions.append((cx_m, cy_m, 0.0))
         for i in object_positions:
-            HARDCODED_WAYPOINTS.append((i[0], i[1], 0.0))
+            HARDCODED_WAYPOINTS.append((i[0], i[1], i[2]))
+        s = str([{'x': x, 'y': y, 'phi': phi} for x, y, phi in object_positions])
+        self.isolated_objects_pub.publish(String(data=s))
 
     
 
