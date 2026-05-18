@@ -250,13 +250,6 @@ function drawMinimap() {
     const px = (cellX / cw) * w;
     const py = h - (cellY / ch) * h;
 
-    // Robot - bright marker
-    ctx.fillStyle = '#5E81E0';
-    ctx.fillRect(px - 4, py - 4, 8, 8);
-    ctx.strokeStyle = '#000';
-    ctx.lineWidth = 1;
-    ctx.strokeRect(px - 4, py - 4, 8, 8);
-
     // Heading arrow
     ctx.strokeStyle = '#D25C76';
     ctx.lineWidth = 2;
@@ -265,6 +258,16 @@ function drawMinimap() {
     ctx.lineTo(px + Math.cos(robotPose.theta) * 15,
                py - Math.sin(robotPose.theta) * 15);
     ctx.stroke();
+
+
+    // Robot - bright marker
+    ctx.fillStyle = '#5E81E0';
+    ctx.fillRect(px - 4, py - 4, 8, 8);
+    ctx.strokeStyle = '#000';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(px - 4, py - 4, 8, 8);
+
+
   } else {
     // No costmap yet - show waiting message
     ctx.fillStyle = '#342C3F';

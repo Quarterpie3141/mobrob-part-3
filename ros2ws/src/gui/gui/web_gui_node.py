@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 import rclpy
 from rclpy.node import Node
-from geometry_msgs.msg import Twist, PoseStamped, PoseWithCovariance
+from geometry_msgs.msg import PoseWithCovariance
+from tf_transformations import euler_from_quaternion
 from std_msgs.msg import Bool, String
-from nav_msgs.msg import Odometry
 from flask import Flask, render_template
 from nav_msgs.msg import OccupancyGrid
 import numpy as np
@@ -64,10 +64,14 @@ class WebGuiNode(Node):
 
 
     def baselink_callback(self, msg):
+
+        orientation_list = [msg.pose.orientation.x, msg.pose.orientation.y, msg.pose.orientation.z, msg.pose.orientation.w]
+        _, _, yaw = euler_from_quaternion(orientation_list)
+
         socketio.emit('robot_pose', {
             'x': msg.pose.position.x,
             'y': msg.pose.position.y,
-            'theta': 0.0
+            'theta': yaw
         })
 
     def costmap_callback(self, msg):
