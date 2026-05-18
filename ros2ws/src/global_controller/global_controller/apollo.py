@@ -12,19 +12,20 @@ from rclpy.action import ActionClient
 from nav2_msgs.action import NavigateToPose 
 from action_msgs.msg import GoalStatus # Add this import at the top
 from nav_msgs.msg import OccupancyGrid
-
+from slam_toolbox.srv import Pause 
 
 import cv2
 import numpy as np
 import math
 
 HARDCODED_WAYPOINTS: List[Tuple[float, float, float]] = [
-    (5.0, 0.0, 0.0), 
-    (10.0, 0.0, 3.141), 
-    (5.0, 0.0, 3.141), 
-    (0.0, 0.0, 3.141), 
-    (-5.0, 0.0, 0.0),
-    (0.0, 0.0, 0.0)
+    (0.0, 0.0, 0.0), 
+    (1.0, 0.0, 0.0), 
+    # (10.0, 0.0, 3.141), 
+    # (5.0, 0.0, 3.141), 
+    # (0.0, 0.0, 3.141), 
+    # (-5.0, 0.0, 0.0),
+    # (0.0, 0.0, 0.0)
 ]
 
 class ControllerState(str, Enum):   
@@ -94,6 +95,15 @@ class GlobalControllerNode(Node):
         self.get_logger().info(f'Loaded {len(self._waypoints)} Nav2 waypoints.')
         self._publish_state()
         self.get_logger().info(f'Global controller started in state: {self._state.value}')
+
+        #BLOCK SLAM FLOW OF DATA SO THAT IT CANT DO SHIT 
+        #its scuffed but eh
+        self.pause_slam = self.create_client(Pause, 'slam_toolbox/pause_new_measurements')
+        while not self.pause_slam.wait_for_service(timeout_sec=1.0):
+            self.get_logger().info('Waiting for slam_toolbox pause service...')
+        
+        self.localization_mode_active = False
+        self.timer = self.create_timer(0.5, self.control_loop)
 
     def _handle_slave_status(self, msg: String) -> None:
         command = msg.data.strip().lower()
@@ -185,6 +195,12 @@ class GlobalControllerNode(Node):
                 else:
                     self.get_logger().info('Mission Complete!')
                     self._transition_to(ControllerState.STOPPED)
+                #stop mapping    
+                    map_is_done_condition = True 
+                    if map_is_done_condition and not self.localization_mode_active:
+                        self.trigger_slam_pause()
+                
+                
             
             elif status == GoalStatus.STATUS_ABORTED: 
                 self.get_logger().warn('Nav2 Aborted (Status 6). Likely a CPU/Timeout spike. Retrying...')
@@ -196,6 +212,31 @@ class GlobalControllerNode(Node):
                 self.get_logger().error(f'Goal failed with status code: {status}. Mission Halted.')
                 self._transition_to(ControllerState.WAITING)
     
+
+    def trigger_slam_pause(self):
+            self.get_logger().info('Sending pause request to slam_toolbox...')
+            self.localization_mode_active = True # Prevent duplicate calls
+            
+            request = Pause.Request()
+            
+            future = self.pause_slam_client.call_async(request)
+            future.add_done_callback(self.slam_pause_callback)
+
+
+    def slam_pause_callback(self, future):
+            try:
+                response = future.result()
+                # If we reach this line, slam_toolbox successfully froze the map
+                self.get_logger().info('SLAM is now strictly localizing on the fixed map!')
+                
+                # 5. EXECUTE POST-TRANSITION LOGIC HERE
+                # E.g., signal your navigation tasks to start the next phase
+                
+            except Exception as e:
+                self.get_logger().error(f'Failed to pause mapping: {e}')
+                self.localization_mode_active = False # Reset flag to retry if needed
+
+
     def _handle_oneshot_retry(self):
         self.retry_timer.cancel()  # Kill it immediately so it only runs once
         self._retry_current_waypoint()
