@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 import rclpy
 from rclpy.node import Node
-from geometry_msgs.msg import Twist, PoseStamped
+from geometry_msgs.msg import Twist, PoseStamped, PoseWithCovariance
 from std_msgs.msg import Bool, String
 from nav_msgs.msg import Odometry
 from flask import Flask, render_template
@@ -38,10 +38,10 @@ class WebGuiNode(Node):
         # Subscribers
         # goota subscribe to map and pose to show the robot on the map
         self.baselink_sub = self.create_subscription(
-            PoseStamped, '/base_link_pose', self.baselink_callback, 10)
+            PoseWithCovariance, '/pose', self.baselink_callback, 10)
         self.costmap_sub = self.create_subscription(
             OccupancyGrid,
-            '/global_costmap/costmap',
+            '/map',
             self.costmap_callback,
             10
         )

@@ -203,21 +203,11 @@ def generate_launch_description():
         }],
     )
 
-
-    # rviz = Node(
-    #     package='rviz2',
-    #     executable='rviz2',
-    #     name='rviz2',
-    #     condition=IfCondition(NotEqualsSubstitution(mode, 'hardware')),
-    #     output='screen',
-    #     parameters=[{'use_sim_time': use_sim_time}],
-    # )
-
     return LaunchDescription([
         DeclareLaunchArgument('mode',         default_value='slam_nav',
                               description='Operating mode: hardware | slam | slam_nav | nav'),
         DeclareLaunchArgument('map',          default_value='/home/team8/maps/my_map.yaml',
-                              descr[6:13:45 PM]Sent waypoint sequence (3): delta → eta → gammaiption='(nav mode) Full path to map yaml'),
+                              description='(nav mode) Full path to map yaml'),
         DeclareLaunchArgument('use_sim_time', default_value='false'),
         DeclareLaunchArgument('autostart',    default_value='true'),
 
