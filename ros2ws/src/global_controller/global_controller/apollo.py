@@ -73,7 +73,6 @@ class GlobalControllerNode(Node):
 
         #cost map sub
         self.create_subscription(OccupancyGrid, '/global_costmap/costmap', self._handle_costmap, 10)
-        self.isolated_objects_pub = self.create_publisher(String, '/master/status', 10)
         self.costmap_data = None
 
         #isolated objects pub
