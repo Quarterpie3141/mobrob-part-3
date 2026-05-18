@@ -251,14 +251,14 @@ function drawMinimap() {
     const py = h - (cellY / ch) * h;
 
     // Robot - bright marker
-    ctx.fillStyle = '#fff';
+    ctx.fillStyle = '#5E81E0';
     ctx.fillRect(px - 4, py - 4, 8, 8);
     ctx.strokeStyle = '#000';
     ctx.lineWidth = 1;
     ctx.strokeRect(px - 4, py - 4, 8, 8);
 
     // Heading arrow
-    ctx.strokeStyle = '#fff';
+    ctx.strokeStyle = '#D25C76';
     ctx.lineWidth = 2;
     ctx.beginPath();
     ctx.moveTo(px, py);
@@ -267,7 +267,7 @@ function drawMinimap() {
     ctx.stroke();
   } else {
     // No costmap yet - show waiting message
-    ctx.fillStyle = '#666';
+    ctx.fillStyle = '#342C3F';
     ctx.font = '14px monospace';
     ctx.textAlign = 'center';
     ctx.fillText('// AWAITING COSTMAP', w / 2, h / 2);
