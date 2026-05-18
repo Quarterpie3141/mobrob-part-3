@@ -11,7 +11,11 @@ from std_msgs.msg import String
 from rclpy.action import ActionClient
 from nav2_msgs.action import NavigateToPose 
 from action_msgs.msg import GoalStatus # Add this import at the top
+from nav_msgs.msg import OccupancyGrid
 
+
+import cv2
+import numpy as np
 
 HARDCODED_WAYPOINTS: List[Tuple[float, float, float]] = [
     (1.0, 0.0, 0.0), 
@@ -66,6 +70,11 @@ class GlobalControllerNode(Node):
         self._master_status_pub = self.create_publisher(String, '/master/status', 10)
         
         self.create_subscription(String, '/slave/status', self._handle_slave_status, 10)
+
+        #cost map sub
+        self.create_subscription(OccupancyGrid, '/global_costmap/costmap', self._handle_costmap, 10)
+        self.isolated_objects_pub = self.create_publisher(String, '/master/status', 10)
+        self.costmap_data = None
         
         # Nav2 Action Client
         self._nav_client = ActionClient(self, NavigateToPose, 'navigate_to_pose')
@@ -231,6 +240,48 @@ class GlobalControllerNode(Node):
             
     def _has_waypoints_remaining(self) -> bool:
         return self._current_waypoint_index < len(self._waypoints)
+
+
+    def _handle_costmap(self, msg: OccupancyGrid) -> None:
+        self.costmap_data = msg
+
+
+    def isolate_objects(self):
+        costmap = self.costmap_data
+        object_positions = []
+        #conver to binary image
+        grid = np.array(costmap.data, dtype=np.int8).reshape(
+        costmap.info.height, costmap.info.width
+        )
+        img = np.zeros_like(grid, dtype=np.uint8)
+        img[grid == 100] = 255      # occupied  → white
+        img[grid == 0]   = 0        # free      → black
+        img[grid == -1]  = 0        # unknown   → black (or 127 if you want it visible)
+        _, binary = cv2.threshold(img, 127, 255, cv2.THRESH_BINARY)
+
+        num_labels, labels, stats, centroids = cv2.connectedComponentsWithStats(binary)
+
+        #Apply minimum area
+        min_area = 10
+        max_area = 1000
+        for i in range(1, num_labels):
+            if stats[i, cv2.CC_STAT_AREA] < min_area or stats[i, cv2.CC_STAT_AREA] > max_area:
+                labels[labels == i] = 0 
+            else:
+                #find x,y coords
+                res = costmap.info.resolution 
+                area_m2 = stats[i, cv2.CC_STAT_AREA] * (res ** 2)
+                w_m     = stats[i, cv2.CC_STAT_WIDTH]  * res
+                h_m     = stats[i, cv2.CC_STAT_HEIGHT] * res
+
+                cx_m = centroids[i][0] * res + costmap.info.origin.position.x
+                cy_m = centroids[i][1] * res + costmap.info.origin.position.y
+                object_positions.append((cx_m, cy_m))
+        for i in object_positions:
+            HARDCODED_WAYPOINTS.append((i[0], i[1], 0.0))
+
+    
+
 
 def main(args=None) -> None:
     rclpy.init(args=args)
