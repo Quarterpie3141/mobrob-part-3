@@ -14,10 +14,10 @@ from action_msgs.msg import GoalStatus # Add this import at the top
 
 
 HARDCODED_WAYPOINTS: List[Tuple[float, float, float]] = [
-    (1.0, 0.0, 0.0), 
-    (2.0, 0.0, 0.0), 
-    (3.0, 0.0, 0.0), 
-    (4.0, 0.0, 0.0), 
+    (0.0, 0.0, 0.0), 
+    (1.0, 1.0, 0.785), 
+    (5.0, 5.0, 0.785), 
+    (0.0, 0.0, 0.0), 
     (10.0, 0.0, 0.0),
     (0.0, 0.0, 0.0)
 ]

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 import rclpy
 from rclpy.node import Node
-from geometry_msgs.msg import PoseWithCovariance
+from geometry_msgs.msg import PoseWithCovarianceStamped
 from tf_transformations import euler_from_quaternion
 from std_msgs.msg import Bool, String
 from flask import Flask, render_template
@@ -38,7 +38,7 @@ class WebGuiNode(Node):
         # Subscribers
         # goota subscribe to map and pose to show the robot on the map
         self.baselink_sub = self.create_subscription(
-            PoseWithCovariance, '/pose', self.baselink_callback, 10)
+            PoseWithCovarianceStamped, '/pose', self.baselink_callback, 10)
         self.costmap_sub = self.create_subscription(
             OccupancyGrid,
             '/map',
@@ -65,14 +65,15 @@ class WebGuiNode(Node):
 
     def baselink_callback(self, msg):
 
-        orientation_list = [msg.pose.orientation.x, msg.pose.orientation.y, msg.pose.orientation.z, msg.pose.orientation.w]
+        orientation_list = [msg.pose.pose.orientation.x, msg.pose.pose.orientation.y, msg.pose.pose.orientation.z, msg.pose.pose.orientation.w]
         _, _, yaw = euler_from_quaternion(orientation_list)
 
         socketio.emit('robot_pose', {
-            'x': msg.pose.position.x,
-            'y': msg.pose.position.y,
+            'x': msg.pose.pose.position.x,
+            'y': msg.pose.pose.position.y,
             'theta': yaw
         })
+
 
     def costmap_callback(self, msg):
       # Throttling 

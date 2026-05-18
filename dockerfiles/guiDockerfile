@@ -9,6 +9,7 @@ RUN apt-get update && apt-get install -y \
     ros-jazzy-ros-base \
     python3-colcon-common-extensions \
     ros-jazzy-foxglove-bridge \
+    ros-jazzy-tf-transformations\
     python3-pip \
     python3-venv \
     && rm -rf /var/lib/apt/lists/*
