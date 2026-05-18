@@ -76,6 +76,10 @@ class GlobalControllerNode(Node):
         self.isolated_objects_pub = self.create_publisher(String, '/master/status', 10)
         self.costmap_data = None
         
+        #phase
+        self.create_subscription(String, '/phase', self._handle_phase, 10)
+        self.phase = None
+
         # Nav2 Action Client
         self._nav_client = ActionClient(self, NavigateToPose, 'navigate_to_pose')
         
@@ -245,6 +249,11 @@ class GlobalControllerNode(Node):
     def _handle_costmap(self, msg: OccupancyGrid) -> None:
         self.costmap_data = msg
 
+    def _handle_phase(self, msg: String) -> None:
+        self.phase = msg
+        if self.phase == 'phase_2':
+            self.isolate_objects()
+
 
     def isolate_objects(self):
         costmap = self.costmap_data
@@ -257,7 +266,7 @@ class GlobalControllerNode(Node):
         img[grid == 100] = 255      # occupied  → white
         img[grid == 0]   = 0        # free      → black
         img[grid == -1]  = 0        # unknown   → black (or 127 if you want it visible)
-        _, binary = cv2.threshold(img, 127, 255, cv2.THRESH_BINARY)
+        _, binary = cv2.threshold(img, 250, 255, cv2.THRESH_BINARY)
 
         num_labels, labels, stats, centroids = cv2.connectedComponentsWithStats(binary)
 
@@ -265,9 +274,7 @@ class GlobalControllerNode(Node):
         min_area = 10
         max_area = 1000
         for i in range(1, num_labels):
-            if stats[i, cv2.CC_STAT_AREA] < min_area or stats[i, cv2.CC_STAT_AREA] > max_area:
-                labels[labels == i] = 0 
-            else:
+            if stats[i, cv2.CC_STAT_AREA] > min_area and stats[i, cv2.CC_STAT_AREA] < max_area:
                 #find x,y coords
                 res = costmap.info.resolution 
                 area_m2 = stats[i, cv2.CC_STAT_AREA] * (res ** 2)
