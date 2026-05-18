@@ -13,7 +13,7 @@ class greek(Node):
     def __init__(self):
         super().__init__('greek')
         self.model = get_model(
-        model_id="test-2-150-per/4",
+        model_id="test-2-150-per/5",
         api_key="Kms3xRqZ4JstX4UopFEA"
         )
 
@@ -56,7 +56,7 @@ class greek(Node):
                     cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2
                     )
                 
-                predicted_letter = self.CLASSES[pred.class_name]
+                predicted_letter = pred.class_name
                 self.letter_detection_pub.publish(String(data=predicted_letter))
             else:
                 self.letter_detection_pub.publish(String(data="confidece too low"))
