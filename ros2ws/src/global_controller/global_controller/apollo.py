@@ -19,11 +19,11 @@ import numpy as np
 import math
 
 HARDCODED_WAYPOINTS: List[Tuple[float, float, float]] = [
-    (5.0, 0.0, 0.0), 
-    (10.0, 0.0, 3.141), 
-    (5.0, 0.0, 3.141), 
+    (3.0, 0.0, 0.0), 
+    (6.0, 0.0, 3.141), 
+    (3.0, 0.0, 3.141), 
     (0.0, 0.0, 3.141), 
-    (-5.0, 0.0, 0.0),
+    (-2.0, 0.0, 0.0),
     (0.0, 0.0, 0.0)
 ]
 
@@ -192,10 +192,20 @@ class GlobalControllerNode(Node):
                     self.get_logger().info('Mapping Initial Complete!')
                     #self._transition_to(ControllerState.STOPPED)
                     #call stuff here
-                    if self.current_explore_index ==1:
+                    if self._current_explore_index ==1:
                         self.isolate_objects()
 
                     if self._current_explore_index < len(self._explore_way):
+                        dist_btw_points = math.sqrt((self._explore_way[self._current_explore_index][0] - self._waypoints[-1][0])**2 + (self._explore_way[self._current_explore_index][1] - self._waypoints[-1][1])**2)
+                        self.get_logger().info(f'Distance from last waypoint to next explore point: {dist_btw_points} meters')
+                        if dist_btw_points > 4.0:
+                            self.get_logger().warn('Next explore point is quite far from last waypoint. Consider adding intermediate waypoints for better navigation.')
+                            interm_x = (self._waypoints[-1][0] + self._explore_way[self._current_explore_index][0]) / 2
+                            interm_y = (self._waypoints[-1][1] + self._explore_way[self._current_explore_index][1]) / 2
+                            interm_phi =  self._waypoints[-1][2]  # Just keep the same orientation for the intermediate point
+                            self._waypoints.append((interm_x, interm_y, interm_phi))
+                            self.get_logger().info(f'Added intermediate waypoint at X={interm_x}, Y={interm_y}, Phi={interm_phi} to bridge gap to explore point.')
+
                         self._waypoints.append(self._explore_way[self._current_explore_index])
                         self.get_logger().info("SENDING EXPLORE POI:"+str(self._explore_way[self._current_explore_index]))
                         self.get_logger().info("SENDING EXPLORE POI:"+str(self._explore_way[self._current_explore_index]))
@@ -205,7 +215,7 @@ class GlobalControllerNode(Node):
                         self.get_logger().info("SENDING EXPLORE POI:"+str(self._explore_way[self._current_explore_index]))
                         self.get_logger().info("SENDING EXPLORE POI:"+str(self._explore_way[self._current_explore_index]))
 
-                        self._current_waypoint_index += 1
+                        #self._current_waypoint_index += 1
 
                         if self._current_explore_index != 1:
                             #cv detection drive stuff
@@ -218,6 +228,13 @@ class GlobalControllerNode(Node):
                             self.get_logger().info('SHOULD BE taking picture at POI...')
 
                         if self._current_waypoint_index < len(self._waypoints):
+                            self.get_logger().info(" EXPLORE POI:"+str(self._explore_way[self._current_explore_index]))
+                            self.get_logger().info(" EXPLORE POI:"+str(self._explore_way[self._current_explore_index]))
+                            self.get_logger().info(" EXPLORE POI:"+str(self._explore_way[self._current_explore_index]))
+                            self.get_logger().info(" EXPLORE POI:"+str(self._explore_way[self._current_explore_index]))
+                            self.get_logger().info(" EXPLORE POI:"+str(self._explore_way[self._current_explore_index]))
+                            self.get_logger().info(" EXPLORE POI:"+str(self._explore_way[self._current_explore_index]))
+                            self.get_logger().info(" EXPLORE POI:"+str(self._explore_way[self._current_explore_index]))
                             self._send_nav2_goal()
                             self._current_explore_index += 1
 
@@ -352,23 +369,8 @@ class GlobalControllerNode(Node):
 
         for i in object_positions:
             angle_calc = round(math.atan2(i[1], i[0]),2)
-            if angle_calc >= 0 and angle_calc < math.pi/2: 
-                new_x = round(i[0] - 1.0 * math.cos(angle_calc),2)
-                new_y = round(i[1] - 1.0 * math.sin(angle_calc),2)
-            elif angle_calc >= math.pi/2 and angle_calc < math.pi:
-                new_x = round(i[0] + 1.0 * math.cos(angle_calc),2)
-                new_y = round(i[1] - 1.0 * math.sin(angle_calc),2)
-            elif angle_calc >= math.pi and angle_calc < math.pi*(3/2):
-                new_x = round(i[0] + 1.0 * math.cos(angle_calc),2)
-                new_y = round(i[1] + 1.0 * math.sin(angle_calc),2)
-            elif angle_calc >= math.pi*(3/2) and angle_calc < 2*math.pi:
-                new_x = round(i[0] - 1.0 * math.cos(angle_calc),2)
-                new_y = round(i[1] + 1.0 * math.sin(angle_calc),2)
-            else:
-                # something has failed so just substract one and hope
-                new_x = 0.0 #round(i[0] - 1.0, 2)
-                new_y = 0.0 #round(i[1] - 1.0, 2)
-
+            new_x = round(i[0] - 1.0 * math.cos(angle_calc),2)
+            new_y = round(i[1] - 1.0 * math.sin(angle_calc),2)
             self._explore_way.append((new_x, new_y, angle_calc))
 
 
