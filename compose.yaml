@@ -110,19 +110,7 @@ services:
     privileged: true
     volumes:
       - /dev:/dev
-
-  # mobrob_slam:
-  #     build:
-  #       context: .
-  #       dockerfile: dockerfiles/slamDockerfile
-  #     pull_policy: build
-  #     network_mode: host
-  #     stdin_open: true
-  #     tty: true
-  #     privileged: true
-  #     volumes:
-  #       - /dev:/dev
-
+      
   mobrob_nav2:
     build:
       context: .
@@ -134,7 +122,33 @@ services:
     privileged: true
     volumes:
       - /dev:/dev
-
+   
+   mobrob_image_publisher:
+    build:
+      context: .
+      dockerfile: dockerfiles/image_publisherDockerfile
+    pull_policy: build
+    network_mode: host
+    stdin_open: true
+    tty: true
+    privileged: true
+    volumes:
+      - /dev:/dev
+      - /dev/bus/usb:/dev/bus/usb
+    device_cgroup_rules:
+      
+      
+   mobrob_gui:
+    build:
+      context: .
+      dockerfile: dockerfiles/guiDockerfile
+    pull_policy: build
+    network_mode: host
+    stdin_open: true
+    tty: true
+    privileged: true
+    volumes:
+      - /dev:/dev
   
   mobrob_gui:
     build:
