@@ -41,7 +41,7 @@ controller_server:
       wz_max: 1.9
       iteration_count: 1
       prune_distance: 1.7
-      transform_tolerance: 0.1
+      transform_tolerance: 0.3
       temperature: 0.3
       gamma: 0.015
       motion_model: DiffDrive
@@ -119,8 +119,8 @@ local_costmap:
       global_frame: odom
       robot_base_frame: base_link
       rolling_window: true
-      width: 3
-      height: 3
+      width: 10
+      height: 10
       resolution: 0.05
       robot_radius: 0.3
       plugins: ["voxel_layer", "inflation_layer"]
@@ -147,7 +147,7 @@ local_costmap:
       inflation_layer:
         plugin: nav2_costmap_2d::InflationLayer
         cost_scaling_factor: 3.0
-        inflation_radius: 0.55
+        inflation_radius: 0.2
       always_send_full_costmap: true
 
 global_costmap:
@@ -213,7 +213,7 @@ behavior_server:
       plugin: nav2_behaviors::Wait
     global_frame: odom
     robot_base_frame: base_link
-    transform_tolerance: 0.1
+    transform_tolerance: 0.3
     simulate_ahead_time: 2.0
     max_rotational_vel: 1.0
     min_rotational_vel: 0.4
@@ -274,5 +274,7 @@ lifecycle_manager_navigation:
     node_names:
       - controller_server
       - planner_server
-      - bt_navigator
+      - behavior_server
       - smoother_server
+      - bt_navigator      # <-- Ensure this matches the node name
+      - waypoint_follower # <-- Add this if you are using it

@@ -224,7 +224,7 @@ def generate_launch_description():
         slam_toolbox,
         slam_lifecycle,
         map_server,
-        amcl,
+        #amcl,
         controller_server,
         planner_server,
         behavior_server,
