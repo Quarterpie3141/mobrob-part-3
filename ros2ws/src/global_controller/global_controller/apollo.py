@@ -176,7 +176,7 @@ class GlobalControllerNode(Node):
                     self.get_logger().info('Mission Complete!')
                     self._transition_to(ControllerState.STOPPED)
             
-            elif status == GoalStatus.STATUS_ABORTED:  This is your Status 6 (Timeout/CPU la#g)
+            elif status == GoalStatus.STATUS_ABORTED: # This is your Status 6 (Timeout/CPU la#g)
                 self.get_logger().warn('Nav2 Aborted (Status 6). Likely a CPU/Timeout spike. Retrying...')
                 # DO NOT transition to WAITING. 
                 # Use a timer to retry so we don't spam the server instantly
