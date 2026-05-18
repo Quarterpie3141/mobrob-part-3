@@ -24,4 +24,11 @@ def generate_launch_description():
             output='screen',
         ),
         foxglove_bridge_launch,
+        Node(
+            package='foxglove_bridge',
+            executable='foxglove_bridge',
+            parameters=[{
+                'port': 8765
+            }]
+        ),
     ])

@@ -2,9 +2,11 @@
 import rclpy
 from rclpy.node import Node
 from geometry_msgs.msg import Twist, PoseStamped
+from std_msgs.msg import Bool, String
 from nav_msgs.msg import Odometry
-from std_msgs.msg import String, Bool
 from flask import Flask, render_template
+from nav_msgs.msg import OccupancyGrid
+import numpy as np
 from flask_socketio import SocketIO
 import threading
 import os
@@ -21,6 +23,7 @@ app.config['SECRET_KEY'] = 'ros2webgui'
 socketio = SocketIO(app, cors_allowed_origins="*", async_mode='threading')
 
 
+
 class WebGuiNode(Node):
     def __init__(self):
         super().__init__('web_gui_node')
@@ -28,18 +31,27 @@ class WebGuiNode(Node):
         # Publishers
         self.pause_pub = self.create_publisher(Bool, '/pause', 10)
         self.phase_pub = self.create_publisher(String, '/phase', 10)
-        self.waypoint_order_pub = self.create_publisher(
-            String, '/waypoint_order', 10)
-        self.status_pub = self.create_publisher(String, '/web_gui_status', 10)
+        self.waypoint_order_pub = self.create_publisher(String, '/waypoint_order', 10)
+
+        # gotta publish something to start the whole thing mabye start paused and un pause
 
         # Subscribers
+        # goota subscribe to map and pose to show the robot on the map
         self.odom_sub = self.create_subscription(
             Odometry, '/odom', self.odom_callback, 10)
+        self.costmap_sub = self.create_subscription(
+            OccupancyGrid,
+            '/global_costmap/costmap',
+            self.costmap_callback,
+            10
+        )
 
         # State
         self.current_phase = 1
         self.is_paused = False
         self.waypoint_sequence = []
+        self.costmap_counter = 0
+        self.last_costmap_meta = None
 
         # All available Greek-letter waypoints
         self.waypoints = [
@@ -50,7 +62,7 @@ class WebGuiNode(Node):
         self.get_logger().info('Web GUI Node started')
         self.log_to_web('ROS 2 Web GUI Node initialized', 'info')
 
-    # ---------- ROS Callbacks ----------
+
     def odom_callback(self, msg):
         socketio.emit('robot_pose', {
             'x': msg.pose.pose.position.x,
@@ -58,7 +70,29 @@ class WebGuiNode(Node):
             'theta': 0.0
         })
 
-    # ---------- Phase / Pause Functions ----------
+    def costmap_callback(self, msg):
+      # Throttling 
+      self.costmap_counter += 1
+      if self.costmap_counter % 3 != 0:
+          return
+
+      width = msg.info.width
+      height = msg.info.height
+      resolution = msg.info.resolution
+      origin_x = msg.info.origin.position.x
+      origin_y = msg.info.origin.position.y
+
+      #  data is int8[], values: -1=unknown, 0=free, 100=occupied
+      data = np.array(msg.data, dtype=np.int8).tobytes()
+
+      socketio.emit('costmap', {
+          'width': width,
+          'height': height,
+          'resolution': resolution,
+          'origin_x': origin_x,
+          'origin_y': origin_y,
+          'data': data, 
+      })
     def set_phase(self, phase):
         if phase not in (1, 2):
             self.log_to_web(f'Invalid phase: {phase}', 'error')
@@ -79,7 +113,7 @@ class WebGuiNode(Node):
         self.log_to_web(f'Robot {state}', level)
         return self.is_paused
 
-    # ---------- Waypoint Functions ----------
+
     def send_waypoint_sequence(self, sequence):
         # Validate
         invalid = [w for w in sequence if w not in self.waypoints]
@@ -114,7 +148,6 @@ class WebGuiNode(Node):
 ros_node = None
 
 
-# ---------- Flask Routes ----------
 @app.route('/')
 def index():
     return render_template('index.html')
@@ -173,7 +206,7 @@ def main():
     ros_thread.start()
 
     try:
-        socketio.run(app, host='0.0.0.0', port=5000, debug=False,
+        socketio.run(app, host='0.0.0.0', port=6767, debug=False,
                      allow_unsafe_werkzeug=True)
     except KeyboardInterrupt:
         pass

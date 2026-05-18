@@ -22,6 +22,14 @@ socket.on('connect', () => {
   addLog('Connected to ROS 2 server', 'success');
 });
 
+socket.on('costmap', (data) => {
+  costmap = data;
+  // 'data' field arrives as ArrayBuffer because we sent raw bytes
+  const cells = new Int8Array(data.data);
+  buildCostmapImage(cells, data.width, data.height);
+  drawMinimap();
+});
+
 socket.on('disconnect', () => {
   statusEl.textContent = 'Disconnected';
   statusEl.className = 'disconnected';
@@ -142,6 +150,8 @@ function renderWaypoints() {
   });
 }
 
+
+
 function moveItem(idx, dir) {
   const newIdx = idx + dir;
   if (newIdx < 0 || newIdx >= selectedSequence.length) return;
@@ -179,40 +189,89 @@ function addLog(message, level = 'info') {
 }
 
 // ---------- Minimap ----------
-function drawMinimap() {
-  const w = canvas.width, h = canvas.height;
-  ctx.clearRect(0, 0, w, h);
 
-  ctx.strokeStyle = '#313244';
-  ctx.lineWidth = 1;
-  for (let i = 0; i <= w; i += SCALE) {
-    ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, h); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(w, i); ctx.stroke();
+function buildCostmapImage(cells, w, h) {
+  // Pre-render the costmap into an offscreen canvas for fast blitting
+  const offscreen = document.createElement('canvas');
+  offscreen.width = w;
+  offscreen.height = h;
+  const octx = offscreen.getContext('2d');
+  const img = octx.createImageData(w, h);
+
+  for (let i = 0; i < cells.length; i++) {
+    const v = cells[i];
+    let r, g, b, a;
+    if (v < 0) {
+      // Unknown - dark gray
+      r = g = b = 40; a = 255;
+    } else if (v === 0) {
+      // Free - black
+      r = g = b = 0; a = 255;
+    } else if (v >= 100) {
+      // Occupied - pure white
+      r = g = b = 255; a = 255;
+    } else {
+      // Cost gradient - black to white
+      const c = Math.round((v / 100) * 255);
+      r = g = b = c; a = 255;
+    }
+
+    // OccupancyGrid is stored row-major, bottom-up in ROS convention
+    // We need to flip vertically when drawing
+    const px = i % w;
+    const py = h - 1 - Math.floor(i / w);  // flip Y
+    const idx = (py * w + px) * 4;
+    img.data[idx]     = r;
+    img.data[idx + 1] = g;
+    img.data[idx + 2] = b;
+    img.data[idx + 3] = a;
   }
-  ctx.strokeStyle = '#585b70';
-  ctx.lineWidth = 2;
-  ctx.beginPath(); ctx.moveTo(w/2, 0); ctx.lineTo(w/2, h); ctx.stroke();
-  ctx.beginPath(); ctx.moveTo(0, h/2); ctx.lineTo(w, h/2); ctx.stroke();
 
-  if (trail.length > 1) {
-    ctx.strokeStyle = '#89b4fa';
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    trail.forEach((p, i) => {
-      const px = w/2 + p.x * SCALE;
-      const py = h/2 - p.y * SCALE;
-      if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
-    });
-    ctx.stroke();
-  }
-
-  const rx = w/2 + robotPose.x * SCALE;
-  const ry = h/2 - robotPose.y * SCALE;
-  ctx.fillStyle = '#a6e3a1';
-  ctx.beginPath();
-  ctx.arc(rx, ry, 8, 0, 2 * Math.PI);
-  ctx.fill();
+  octx.putImageData(img, 0, 0);
+  costmapImage = offscreen;
 }
 
+function drawMinimap() {
+  const w = canvas.width, h = canvas.height;
+  ctx.fillStyle = '#000';
+  ctx.fillRect(0, 0, w, h);
+
+  if (costmap && costmapImage) {
+    // Scale the costmap to fit the canvas
+    ctx.imageSmoothingEnabled = false;  // pixelated look
+    ctx.drawImage(costmapImage, 0, 0, w, h);
+
+    // Convert robot world coords to costmap pixel coords
+    const { resolution, origin_x, origin_y, width: cw, height: ch } = costmap;
+    const cellX = (robotPose.x - origin_x) / resolution;
+    const cellY = (robotPose.y - origin_y) / resolution;
+
+    // Then to canvas coords (with vertical flip)
+    const px = (cellX / cw) * w;
+    const py = h - (cellY / ch) * h;
+
+    // Robot - bright marker
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(px - 4, py - 4, 8, 8);
+    ctx.strokeStyle = '#000';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(px - 4, py - 4, 8, 8);
+
+    // Heading arrow
+    ctx.strokeStyle = '#fff';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(px, py);
+    ctx.lineTo(px + Math.cos(robotPose.theta) * 15,
+               py - Math.sin(robotPose.theta) * 15);
+    ctx.stroke();
+  } else {
+    // No costmap yet - show waiting message
+    ctx.fillStyle = '#666';
+    ctx.font = '14px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('// AWAITING COSTMAP', w / 2, h / 2);
+  }
+}
 drawMinimap();
 renderWaypoints();
