@@ -19,7 +19,7 @@ pkg_share = get_package_share_directory('gui')
 app = Flask(__name__,
             template_folder=os.path.join(pkg_share, 'templates'),
             static_folder=os.path.join(pkg_share, 'static'))
-app.config['SECRET_KEY'] = 'ros2webgui'
+app.config['SECRET_KEY'] = 'tuna'
 socketio = SocketIO(app, cors_allowed_origins="*", async_mode='threading')
 
 
@@ -37,8 +37,8 @@ class WebGuiNode(Node):
 
         # Subscribers
         # goota subscribe to map and pose to show the robot on the map
-        self.odom_sub = self.create_subscription(
-            Odometry, '/odom', self.odom_callback, 10)
+        self.baselink_sub = self.create_subscription(
+            PoseStamped, '/base_link_pose', self.baselink_callback, 10)
         self.costmap_sub = self.create_subscription(
             OccupancyGrid,
             '/global_costmap/costmap',
@@ -63,10 +63,10 @@ class WebGuiNode(Node):
         self.log_to_web('ROS 2 Web GUI Node initialized', 'info')
 
 
-    def odom_callback(self, msg):
+    def baselink_callback(self, msg):
         socketio.emit('robot_pose', {
-            'x': msg.pose.pose.position.x,
-            'y': msg.pose.pose.position.y,
+            'x': msg.pose.position.x,
+            'y': msg.pose.position.y,
             'theta': 0.0
         })
 
@@ -112,7 +112,6 @@ class WebGuiNode(Node):
         level = 'warning' if self.is_paused else 'success'
         self.log_to_web(f'Robot {state}', level)
         return self.is_paused
-
 
     def send_waypoint_sequence(self, sequence):
         # Validate
