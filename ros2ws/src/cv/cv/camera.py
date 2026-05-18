@@ -6,7 +6,7 @@ import os
 import math
 import time
 import rclpy
-from sensor_msgs.msg import Joy, NavSatFix
+from sensor_msgs.msg import NavSatFix
 from rclpy.node import Node
 from sensor_msgs.msg import Image
 from vision_msgs.msg import Detection2D, Detection2DArray, BoundingBox2D, ObjectHypothesisWithPose
@@ -26,7 +26,7 @@ class DepthAICameraNode(Node):
 
         self.bridge = CvBridge()
         self.master_status_sub = self.create_subscription(String, '/master/status', self.master_status_callback, 10)
-        self.joy_sub = self.create_subscription(Joy, '/joy', self.joy_callback, 10)
+        #self.joy_sub = self.create_subscription(Joy, '/joy', self.joy_callback, 10)
         self.odom_sub = self.create_subscription(Odometry, '/Odom', self.odom_callback, 10)
         self.cam_sub = self.create_subscription(Image, 'camera/raw_image', self.cam_sub_callback, 10)
 
