@@ -45,10 +45,9 @@ RUN /opt/venv/bin/pip install --upgrade pip setuptools wheel
 RUN /opt/venv/bin/pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
 RUN /opt/venv/bin/pip install ultralytics --break-system-packages
 RUN /opt/venv/bin/pip install "numpy<2"
-#RUN mkdir -p /opt/ros2ws/models && curl -L "https://artifacts.luxonis.com/artifactory/luxonis-python-snapshot-local/depthai_sdk/yolov6n_coco_640x640.blob" -o /opt/ros2ws/models/yolov6n.blob
 #cv_bridge
-RUN apt install ros-jazzy-cv-bridge -y
-RUN apt install ros-jazzy-vision-msgs -y
+RUN apt update && apt install ros-jazzy-cv-bridge -y
+RUN apt update && apt install ros-jazzy-vision-msgs -y
 #copy src dir and setup workspace
 COPY ros2ws /opt/ros2ws
 WORKDIR /opt/ros2ws
