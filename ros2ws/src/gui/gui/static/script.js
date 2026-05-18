@@ -6,12 +6,14 @@ const canvas = document.getElementById('minimap');
 const ctx = canvas.getContext('2d');
 
 let robotPose = { x: 0, y: 0, theta: 0 };
+let pois = [];  // Array of { x, y, phi }
 const trail = [];
 const MAX_TRAIL = 200;
 const SCALE = 20;
 
 let currentPhase = 1;
 let isPaused = false;
+let goalpose = null;
 let availableWaypoints = [];
 let selectedSequence = [];
 
@@ -61,6 +63,23 @@ socket.on('state_sync', (data) => {
 socket.on('pause_state', (data) => {
   isPaused = data.paused;
   updatePauseButton();
+});
+
+socket.on('nav2_goal', (data) => {
+  goalpose = data;
+  addLog(`Heading to new goal: (${data.x.toFixed(2)}, ${data.y.toFixed(2)}, φ=${data.phi.toFixed(2)})`, 'info');
+  drawMinimap();
+});
+
+socket.on('poi_update', (data) => {
+  try {
+    const fixed = data.poi.replace(/'/g, '"');
+    pois = JSON.parse(fixed);
+    addLog(`POIs updated: ${pois.length} object(s) detected`, 'info');
+    drawMinimap();
+  } catch (e) {
+    console.error('Failed to parse POIs:', e);
+  }
 });
 
 // ---------- Phase Switch ----------
@@ -237,20 +256,93 @@ function drawMinimap() {
   ctx.fillRect(0, 0, w, h);
 
   if (costmap && costmapImage) {
-    // Scale the costmap to fit the canvas
-    ctx.imageSmoothingEnabled = false;  // pixelated look
+    ctx.imageSmoothingEnabled = false;
     ctx.drawImage(costmapImage, 0, 0, w, h);
 
-    // Convert robot world coords to costmap pixel coords
+    // render occupancy map
     const { resolution, origin_x, origin_y, width: cw, height: ch } = costmap;
+
+    //render pois
+    if (pois.length > 0) {
+      pois.forEach((poi, idx) => {
+        const pCellX = (poi.x - origin_x) / resolution;
+        const pCellY = (poi.y - origin_y) / resolution;
+        const ppx = (pCellX / cw) * w;
+        const ppy = h - (pCellY / ch) * h;
+      
+        // outer ring
+        ctx.strokeStyle = '#D25C76';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(ppx, ppy, 8, 0, Math.PI * 2);
+        ctx.stroke();
+      
+        // inner dot
+        ctx.fillStyle = '#D25C76';
+        ctx.beginPath();
+        ctx.arc(ppx, ppy, 2.5, 0, Math.PI * 2);
+        ctx.fill();
+      
+        // heading indicator
+        ctx.strokeStyle = '#D25C76';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(ppx, ppy);
+        ctx.lineTo(ppx + Math.cos(poi.phi) * 14,
+                   ppy - Math.sin(poi.phi) * 14);
+        ctx.stroke();
+      
+        // label
+        ctx.fillStyle = '#D25C76';
+        ctx.font = 'bold 10px monospace';
+        ctx.textAlign = 'left';
+        ctx.fillText(`P${idx + 1}`, ppx + 10, ppy + 4);
+      });
+    }
+
+    // render current goal
+    if (currentGoal) {
+      const gCellX = (currentGoal.x - origin_x) / resolution;
+      const gCellY = (currentGoal.y - origin_y) / resolution;
+      const gx = (gCellX / cw) * w;
+      const gy = h - (gCellY / ch) * h;
+
+      // crosshair
+      ctx.strokeStyle = '#F6D768';
+      ctx.lineWidth = 1;
+      ctx.setLineDash([3, 3]);
+      ctx.beginPath();
+      ctx.moveTo(gx - 14, gy); ctx.lineTo(gx + 14, gy);
+      ctx.moveTo(gx, gy - 14); ctx.lineTo(gx, gy + 14);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      // goal heading
+      ctx.strokeStyle = '#D25C76';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(gx, gy);
+      ctx.lineTo(gx + Math.cos(currentGoal.phi) * 18,
+                 gy - Math.sin(currentGoal.phi) * 18);
+      ctx.stroke();
+
+      // ah
+      ctx.strokeRect(gx - 6, gy - 6, 12, 12);
+
+      // goal label
+      ctx.fillStyle = '#F6D768';
+      ctx.font = 'bold 11px monospace';
+      ctx.textAlign = 'left';
+      ctx.fillText('GOAL', gx + 10, gy - 10);
+    }
+
+    // robots current pose 
     const cellX = (robotPose.x - origin_x) / resolution;
     const cellY = (robotPose.y - origin_y) / resolution;
-
-    // Then to canvas coords (with vertical flip)
     const px = (cellX / cw) * w;
     const py = h - (cellY / ch) * h;
 
-    // Heading arrow
+    // heading arrow
     ctx.strokeStyle = '#D25C76';
     ctx.lineWidth = 2;
     ctx.beginPath();
@@ -259,17 +351,31 @@ function drawMinimap() {
                py - Math.sin(robotPose.theta) * 15);
     ctx.stroke();
 
-
-    // Robot - bright marker
+    // robot square
     ctx.fillStyle = '#5E81E0';
     ctx.fillRect(px - 4, py - 4, 8, 8);
     ctx.strokeStyle = '#000';
     ctx.lineWidth = 1;
     ctx.strokeRect(px - 4, py - 4, 8, 8);
 
+    // line from robot to goal
+    if (currentGoal) {
+      const gCellX = (currentGoal.x - origin_x) / resolution;
+      const gCellY = (currentGoal.y - origin_y) / resolution;
+      const gx = (gCellX / cw) * w;
+      const gy = h - (gCellY / ch) * h;
+
+      ctx.strokeStyle = '#5b81e883';
+      ctx.lineWidth = 1;
+      ctx.setLineDash([4, 4]);
+      ctx.beginPath();
+      ctx.moveTo(px, py);
+      ctx.lineTo(gx, gy);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
 
   } else {
-    // No costmap yet - show waiting message
     ctx.fillStyle = '#342C3F';
     ctx.font = '14px monospace';
     ctx.textAlign = 'center';

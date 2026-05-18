@@ -39,10 +39,22 @@ class WebGuiNode(Node):
         # goota subscribe to map and pose to show the robot on the map
         self.baselink_sub = self.create_subscription(
             PoseWithCovarianceStamped, '/pose', self.baselink_callback, 10)
+        
+        self.poi_sub = self.create_subscription(
+            String, '/poi', self.poi_callback, 10
+        )
+
         self.costmap_sub = self.create_subscription(
             OccupancyGrid,
             '/map',
             self.costmap_callback,
+            10
+        )
+
+        self.nav2_goal_sub = self.create_subscription(
+            String,
+            '/gui/nav2_goal',
+            self.nav2_goal_callback,
             10
         )
 
@@ -98,6 +110,22 @@ class WebGuiNode(Node):
           'origin_y': origin_y,
           'data': data, 
       })
+
+    def poi_callback(self, msg):
+        # poi is a string of the format 
+        socketio.emit('poi_update', {'poi': msg.data})
+
+    def nav2_goal_callback(self, msg):
+        # msg.data is a string of the format "x,y,phi"
+        try:
+            x_str, y_str, phi_str = msg.data.split(',')
+            x = float(x_str)
+            y = float(y_str)
+            phi = float(phi_str)
+            socketio.emit('nav2_goal', {'x': x, 'y': y, 'phi': phi})
+        except Exception as e:
+            self.get_logger().error(f'Failed to parse Nav2 goal: {e}')
+
     def set_phase(self, phase):
         if phase not in (1, 2):
             self.log_to_web(f'Invalid phase: {phase}', 'error')
