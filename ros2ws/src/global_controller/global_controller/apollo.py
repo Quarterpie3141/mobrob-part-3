@@ -28,8 +28,9 @@ HARDCODED_WAYPOINTS: List[Tuple[float, float, float]] = [
 ]
 
 EXPLORE_WAYPOINTS: List[Tuple[float, float, float]] = [
-    (0.0, 0.0, 0.0)
 ]
+
+Explore_Waypoints: List[float] = []
 
 CLASSIFIED_WAYPOINTS: List[Tuple[float, float, float, str]] = [
 ]
@@ -127,15 +128,16 @@ class GlobalControllerNode(Node):
             self.get_logger().info(f'Publishing classified poi to GUI: {s}')
             self.classified_poi_pub.publish(String(data=s))
 
+
+            self.get_logger().info('IMAGE CLASSIFICATION COMPLETE. Detected letter: ' + self.last_detected_letter)
+            self.get_logger().info('IMAGE CLASSIFICATION COMPLETE. Detected letter: ' + self.last_detected_letter)
+            self.get_logger().info('IMAGE CLASSIFICATION COMPLETE. Detected letter: ' + self.last_detected_letter)
+            self.get_logger().info('IMAGE CLASSIFICATION COMPLETE. Detected letter: ' + self.last_detected_letter)
+            self.get_logger().info('IMAGE CLASSIFICATION COMPLETE. Detected letter: ' + self.last_detected_letter)
+            self.get_logger().info('IMAGE CLASSIFICATION COMPLETE. Detected letter: ' + self.last_detected_letter)
             self.last_detected_letter = None # reset last detected letter before next classification
 
 
-            self.get_logger().info('IMAGE CLASSIFICATION COMPLETE. Detected letter: ' + self.last_detected_letter)
-            self.get_logger().info('IMAGE CLASSIFICATION COMPLETE. Detected letter: ' + self.last_detected_letter)
-            self.get_logger().info('IMAGE CLASSIFICATION COMPLETE. Detected letter: ' + self.last_detected_letter)
-            self.get_logger().info('IMAGE CLASSIFICATION COMPLETE. Detected letter: ' + self.last_detected_letter)
-            self.get_logger().info('IMAGE CLASSIFICATION COMPLETE. Detected letter: ' + self.last_detected_letter)
-            self.get_logger().info('IMAGE CLASSIFICATION COMPLETE. Detected letter: ' + self.last_detected_letter)
 
             if self._current_waypoint_index < len(self._waypoints):
                 self.get_logger().info(" EXPLORE POI:"+str(self._explore_way[self._current_explore_index]))

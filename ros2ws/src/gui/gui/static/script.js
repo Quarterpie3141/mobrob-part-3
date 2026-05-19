@@ -10,6 +10,8 @@ let currentGoal = null;
 let pois = [];  // Array of { x, y, phi }
 let classifiedPois = []; // Array of { x, y, phi, class }
 const SCALE = 20;
+const trail = [];
+const MAX_TRAIL = 200;
 
 let currentPhase = 1;
 let isPaused = false;
@@ -69,6 +71,16 @@ socket.on('poi_update', (data) => {
   } catch (e) {
     console.error('Failed to parse POIs:', e);
   }
+});
+
+socket.on('robot_pose', (data) => {
+  robotPose = data;
+  document.getElementById('pose-x').textContent = data.x.toFixed(2);
+  document.getElementById('pose-y').textContent = data.y.toFixed(2);
+  document.getElementById('pose-theta').textContent = data.theta.toFixed(2);
+  trail.push({ x: data.x, y: data.y });
+  if (trail.length > MAX_TRAIL) trail.shift();
+  drawMinimap();
 });
 
 socket.on('classified_poi_update', (data) => {
