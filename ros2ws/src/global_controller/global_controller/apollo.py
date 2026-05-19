@@ -139,7 +139,7 @@ class GlobalControllerNode(Node):
 
 
 
-            if self._current_waypoint_index < (len(self._waypoints)-1):
+            if self._current_waypoint_index < (len(self._waypoints)):
                 self.get_logger().info(" EXPLORE POI:"+str(self._explore_way[self._current_explore_index]))
                 self.get_logger().info(" EXPLORE POI:"+str(self._explore_way[self._current_explore_index]))
                 self.get_logger().info(" EXPLORE POI:"+str(self._explore_way[self._current_explore_index]))
