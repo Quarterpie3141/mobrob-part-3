@@ -80,6 +80,7 @@ class GlobalControllerNode(Node):
         # status publish
         self._gui_nav2_goal_pub = self.create_publisher(String, '/gui/nav2_goal', 10)
         self._master_status_pub = self.create_publisher(String, '/master/status', 10)
+        self._status_log_pub = self.create_publisher(String, '/status_log', 10)
         
         self.create_subscription(String, '/slave/status', self._handle_slave_status, 10)
 
@@ -149,8 +150,6 @@ class GlobalControllerNode(Node):
                 self.get_logger().info(" EXPLORE POI:"+str(self._explore_way[self._current_explore_index]))
                 self._current_explore_index += 1
                 self._send_nav2_goal()
-
-
 
     def _handle_slave_status(self, msg: String) -> None:
         command = msg.data.strip().lower()
@@ -259,20 +258,18 @@ class GlobalControllerNode(Node):
                             self.get_logger().warn('Next explore point is quite far from last waypoint. Consider adding intermediate waypoints for better navigation.')
                             interm_x = (self._waypoints[-1][0] + self._explore_way[self._current_explore_index][0]) / 2
                             interm_y = (self._waypoints[-1][1] + self._explore_way[self._current_explore_index][1]) / 2
-                            interm_phi =  self._waypoints[-1][2]  # Just keep the same orientation for the intermediate point
+                            delta_x = self._explore_way[self._current_explore_index][0] - self._waypoints[-1][0]
+                            delta_y = self._explore_way[self._current_explore_index][1] - self._waypoints[-1][1]
+                            interm_phi = math.atan2(delta_y, delta_x)
                             self._waypoints.append((interm_x, interm_y, interm_phi))
                             self._explore_way_flag.append(False) # intermediate point flag is false
                             self.get_logger().info(f'Added intermediate waypoint at X={interm_x}, Y={interm_y}, Phi={interm_phi} to bridge gap to explore point.')
 
                         self._waypoints.append(self._explore_way[self._current_explore_index])
                         self._explore_way_flag.append(True)
-                        self.get_logger().info("SENDING EXPLORE POI:"+str(self._explore_way[self._current_explore_index]))
-                        self.get_logger().info("SENDING EXPLORE POI:"+str(self._explore_way[self._current_explore_index]))
-                        self.get_logger().info("SENDING EXPLORE POI:"+str(self._explore_way[self._current_explore_index]))
-                        self.get_logger().info("SENDING EXPLORE POI:"+str(self._explore_way[self._current_explore_index]))
-                        self.get_logger().info("SENDING EXPLORE POI:"+str(self._explore_way[self._current_explore_index]))
-                        self.get_logger().info("SENDING EXPLORE POI:"+str(self._explore_way[self._current_explore_index]))
-                        self.get_logger().info("SENDING EXPLORE POI:"+str(self._explore_way[self._current_explore_index]))
+                        self._publish_status_log(
+                            "SENDING EXPLORE POI:" + str(self._explore_way[self._current_explore_index])
+                        )
 
                         
                         
@@ -300,8 +297,7 @@ class GlobalControllerNode(Node):
             else:
                 # For other failures (Canceled, etc.), now we can halt
                 self.get_logger().info(f'waiting for classification')
-                
-    
+
     def _handle_oneshot_retry(self):
         self.retry_timer.cancel()  # Kill it immediately so it only runs once
         self._retry_current_waypoint()
@@ -340,6 +336,11 @@ class GlobalControllerNode(Node):
         status_msg = String()
         status_msg.data = self._state.value
         self._master_status_pub.publish(status_msg)
+
+    def _publish_status_log(self, message: str) -> None:
+        log_msg = String()
+        log_msg.data = message
+        self._status_log_pub.publish(log_msg)
 
     def _log_status_heartbeat(self) -> None:
         now = self.get_clock().now()

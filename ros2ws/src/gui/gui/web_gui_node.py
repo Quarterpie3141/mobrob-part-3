@@ -62,6 +62,13 @@ class WebGuiNode(Node):
             10
         )
 
+        self.status_log_sub = self.create_subscription(
+            String,
+            '/status_log',
+            self.status_log_callback,
+            10
+        )
+
         # State
         self.current_phase = 1
         self.is_paused = False
@@ -131,6 +138,21 @@ class WebGuiNode(Node):
             socketio.emit('nav2_goal', {'x': x, 'y': y, 'phi': phi})
         except Exception as e:
             self.get_logger().error(f'Failed to parse Nav2 goal: {e}')
+
+    def status_log_callback(self, msg):
+        # Supports plain text or JSON: {"message": "...", "level": "info|success|warning|error"}
+        message = msg.data
+        level = 'info'
+
+        try:
+            payload = json.loads(msg.data)
+            if isinstance(payload, dict):
+                message = str(payload.get('message', message))
+                level = str(payload.get('level', level))
+        except json.JSONDecodeError:
+            pass
+
+        self.log_to_web(message, level)
 
     def set_phase(self, phase):
         if phase not in (1, 2):
