@@ -60,4 +60,4 @@ RUN chmod 777 -R /opt/ros2ws
 #build all packages in the workspace
 RUN . /opt/ros/jazzy/setup.bash && /opt/venv/bin/python -m colcon build --packages-select cv --symlink-install
 RUN echo "source /opt/ros2ws/install/setup.bash" >> ~/.bashrc
-CMD ["bash", "-lc", "source /opt/venv/bin/activate && source /opt/ros/jazzy/setup.bash && source /opt/ros2ws/install/setup.bash && ros2 run cv cv_node"]
+CMD ["bash", "-lc", "source /opt/venv/bin/activate && source /opt/ros/jazzy/setup.bash && source /opt/ros2ws/install/setup.bash && ros2 run cv cv_node && ros2 run image_publisher image_publisher"]
