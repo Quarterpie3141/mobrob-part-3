@@ -37,36 +37,31 @@ class DepthAICameraNode(Node):
         self.frame = None
         self.results = []
         self.framecount = 0
-
         self.imgdir = os.path.join(os.getcwd(), "img/")
         self.modeldir = os.path.join(os.getcwd(),"src","cv", "models")
-
         #START TESTING STUFF
         #THESE WILL NEED TWEEKING
         self.target_locked_frames = 0
         self.required_locked_frames = 5
-
         self.center_threshold_px = 60
         self.min_box_area = 25000
 
         self.picture_taken = False
-
         self.searching = False
         self.search_start_yaw = 0.0
         self.accumulated_rotation = 0.0
         self.previous_yaw = 0.0
         self.full_rotation_threshold = 2.0 * math.pi
-
+        self.total_yaw = 0.0
+        self.yaw_initialised = False
         #END TESTING STUFF
-
         weights = os.path.join(self.modeldir, "part3v2.pt")
         self.model = ultralytics.YOLO(weights)
         self.label_map = self.model.names
 
     def cam_sub_callback(self, msg):
         """
-        Camera subscriber callback.
-
+        - Camera subscriber callback.
         - Stores the latest camera frame
         - Runs YOLO inference every 3rd frame
         - Publishes all detections as a Detection2DArray
