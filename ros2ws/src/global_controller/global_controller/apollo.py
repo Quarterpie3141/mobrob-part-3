@@ -31,6 +31,9 @@ EXPLORE_WAYPOINTS: List[Tuple[float, float, float]] = [
     (0.0, 0.0, 0.0)
 ]
 
+CLASSIFIED_WAYPOINTS: List[Tuple[float, float, float, str]] = [
+]
+
 class ControllerState(str, Enum):   
     WAITING = 'waiting for transition to autonomous mode'
     DRIVING = 'driving to waypoint'
@@ -93,7 +96,7 @@ class GlobalControllerNode(Node):
 
         #detect letter signal publisher
         self.start_letter_detection_pub = self.create_publisher(String, '/check_label', 10)
-        self.letter_detection_sub = self.create_subscription(String, '/letter_detection', self.letter_detection_callback, 10)
+        self.letter_detection_sub = self.create_subscription(String, '/camera/letter_detection', self.letter_detection_callback, 10)
         self.last_detected_letter = None
 
         # Nav2 Action Client
@@ -108,6 +111,36 @@ class GlobalControllerNode(Node):
 
     def letter_detection_callback(self, msg: String) -> None:
         self.last_detected_letter = msg.data
+        if msg.data in ("nothing detected", "confidence too low", "no frame available"):
+            self.start_letter_detection_pub.publish(String(data="classify"))
+            return
+        else:
+            x = self._explore_way[self._current_explore_index][0]
+            y = self._explore_way[self._current_explore_index][1]
+            phi = self._explore_way[self._current_explore_index][2]
+            CLASSIFIED_WAYPOINTS.append((x, y, phi, self.last_detected_letter))
+
+            self.last_detected_letter = None # reset last detected letter before next classification
+
+
+            self.get_logger().info('IMAGE CLASSIFICATION COMPLETE. Detected letter: ' + self.last_detected_letter)
+            self.get_logger().info('IMAGE CLASSIFICATION COMPLETE. Detected letter: ' + self.last_detected_letter)
+            self.get_logger().info('IMAGE CLASSIFICATION COMPLETE. Detected letter: ' + self.last_detected_letter)
+            self.get_logger().info('IMAGE CLASSIFICATION COMPLETE. Detected letter: ' + self.last_detected_letter)
+            self.get_logger().info('IMAGE CLASSIFICATION COMPLETE. Detected letter: ' + self.last_detected_letter)
+            self.get_logger().info('IMAGE CLASSIFICATION COMPLETE. Detected letter: ' + self.last_detected_letter)
+
+            if self._current_waypoint_index < len(self._waypoints):
+                self.get_logger().info(" EXPLORE POI:"+str(self._explore_way[self._current_explore_index]))
+                self.get_logger().info(" EXPLORE POI:"+str(self._explore_way[self._current_explore_index]))
+                self.get_logger().info(" EXPLORE POI:"+str(self._explore_way[self._current_explore_index]))
+                self.get_logger().info(" EXPLORE POI:"+str(self._explore_way[self._current_explore_index]))
+                self.get_logger().info(" EXPLORE POI:"+str(self._explore_way[self._current_explore_index]))
+                self.get_logger().info(" EXPLORE POI:"+str(self._explore_way[self._current_explore_index]))
+                self.get_logger().info(" EXPLORE POI:"+str(self._explore_way[self._current_explore_index]))
+                self._send_nav2_goal()
+                self._current_explore_index += 1
+
 
     def _handle_slave_status(self, msg: String) -> None:
         command = msg.data.strip().lower()
@@ -229,46 +262,10 @@ class GlobalControllerNode(Node):
                             #cv detection drive stuff
                             #TAKE PHOTO HERE
                             #classified waypoints
-                            self.last_detected_letter = None # reset last detected letter before taking photo
-                            while self.last_detected_letter is None:
-                                self.start_letter_detection_pub.publish(String(data="classify"))
-                            
-                            x = self._explore_way[self._current_explore_index][0]
-                            y = self._explore_way[self._current_explore_index][1]
-                            phi = self._explore_way[self._current_explore_index][2]
-                            CLASSIFIED_WAYPOINT.append((x, y, phi, self.last_detected_letter))
 
+                            self.start_letter_detection_pub.publish(String(data="classify"))
+                           
 
-
-
-
-
-
-
-
-
-
-
-                            self.get_logger().info('SHOULD BE taking picture at POI...')
-                            self.get_logger().info('SHOULD BE taking picture at POI...')
-                            self.get_logger().info('SHOULD BE taking picture at POI...')
-                            self.get_logger().info('SHOULD BE taking picture at POI...')
-                            self.get_logger().info('SHOULD BE taking picture at POI...')
-                            self.get_logger().info('SHOULD BE taking picture at POI...')
-
-                        if self._current_waypoint_index < len(self._waypoints):
-                            self.get_logger().info(" EXPLORE POI:"+str(self._explore_way[self._current_explore_index]))
-                            self.get_logger().info(" EXPLORE POI:"+str(self._explore_way[self._current_explore_index]))
-                            self.get_logger().info(" EXPLORE POI:"+str(self._explore_way[self._current_explore_index]))
-                            self.get_logger().info(" EXPLORE POI:"+str(self._explore_way[self._current_explore_index]))
-                            self.get_logger().info(" EXPLORE POI:"+str(self._explore_way[self._current_explore_index]))
-                            self.get_logger().info(" EXPLORE POI:"+str(self._explore_way[self._current_explore_index]))
-                            self.get_logger().info(" EXPLORE POI:"+str(self._explore_way[self._current_explore_index]))
-                            self._send_nav2_goal()
-                            self._current_explore_index += 1
-
-
-            
             elif status == GoalStatus.STATUS_ABORTED: 
                 self.get_logger().warn('Nav2 Aborted (Status 6). Likely a CPU/Timeout spike. Retrying...')
                 # DO NOT transition to WAITING. 
@@ -276,8 +273,8 @@ class GlobalControllerNode(Node):
                 self.retry_timer = self.create_timer(2.0, self._handle_oneshot_retry)                
             else:
                 # For other failures (Canceled, etc.), now we can halt
-                self.get_logger().error(f'Goal failed with status code: {status}. Mission Halted.')
-                self._transition_to(ControllerState.WAITING)
+                self.get_logger().info(f'waiting for classification')
+                
     
     def _handle_oneshot_retry(self):
         self.retry_timer.cancel()  # Kill it immediately so it only runs once

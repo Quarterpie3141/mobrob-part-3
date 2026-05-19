@@ -27,24 +27,24 @@ class greek(Node):
 
     def start_letter_detection_callback(self, msg):
         if msg.data == "classify":
-            
-            results = self.model.infer(self.frame)[0]
 
+            if self.frame is None:
+                self.letter_detection_pub.publish(String(data="no frame available"))
+                return
+
+            results = self.model.infer(self.frame)[0]
+            
             if not results.predictions:
                 self.letter_detection_pub.publish(String(data="nothing detected"))
                 return
-               
             
-        # Draw detections
-        for pred in results.predictions:
-            if pred.confidence > 0.5:
-                predicted_letter = pred.class_name
-                self.letter_detection_pub.publish(String(data=predicted_letter))
-                self.letter_detection_pub.publish(String(data=str(pred.confidence)))
-
+            pred = max(results.predictions, key=lambda p: p.confidence)
+                
+            if pred.confidence > 0.8:
+                self.letter_detection_pub.publish(String(data=pred.class_name))
+                
             else:
-                self.letter_detection_pub.publish(String(data="confidece too low"))
-                self.letter_detection_pub.publish(String(data=str(pred.confidence)))
+                self.letter_detection_pub.publish(String(data="confidence too low"))
 
 
 
@@ -52,12 +52,6 @@ class greek(Node):
         self.frame = self.bridge.imgmsg_to_cv2(msg, desired_encoding='bgr8')
 
         
-            
-
-            
-
-      
-
 def main(args=None):
     rclpy.init(args=args)
     node = greek()
