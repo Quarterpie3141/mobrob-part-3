@@ -44,6 +44,10 @@ class WebGuiNode(Node):
             String, '/poi', self.poi_callback, 10
         )
 
+        self.classified_poi_sub = self.create_subscription(
+            String, '/classified_poi', self.classified_poi_callback, 10
+        )
+
         self.costmap_sub = self.create_subscription(
             OccupancyGrid,
             '/map',
@@ -112,8 +116,10 @@ class WebGuiNode(Node):
       })
 
     def poi_callback(self, msg):
-        # poi is a string of the format 
         socketio.emit('poi_update', {'poi': msg.data})
+
+    def classified_poi_callback(self, msg):
+        socketio.emit('classified_poi_update', {'classified_poi': msg.data})
 
     def nav2_goal_callback(self, msg):
         # msg.data is a string of the format "x,y,phi"

@@ -1,7 +1,7 @@
 from enum import Enum
+import string
 from typing import List, Optional, Tuple
 import math
-
 import rclpy
 from rclpy.node import Node
 from sensor_msgs.msg import NavSatFix
@@ -31,12 +31,14 @@ EXPLORE_WAYPOINTS: List[Tuple[float, float, float]] = [
     (0.0, 0.0, 0.0)
 ]
 
+CLASSIFIED_WAYPOINTS: List[Tuple[float, float, float, str]] = []
+
 class ControllerState(str, Enum):   
     WAITING = 'waiting for transition to autonomous mode'
     DRIVING = 'driving to waypoint'
     TAKING_PICTURE = 'taking picture'
     STOPPED = 'stopped'
-
+    
 def yaw_to_quaternion(yaw: float) -> Tuple[float, float, float, float]:
     """
     Converts a yaw angle (in radians) to a fully normalized unit quaternion (x, y, z, w).
@@ -83,10 +85,13 @@ class GlobalControllerNode(Node):
         self.create_subscription(OccupancyGrid, '/map', self._handle_costmap, 10)
         self.costmap_data = None
 
-        #isolated objects pub
-        self.isolated_objects_pub = self.create_publisher(String, '/poi', 10)
+        #poi pub
+        self.poi_pub = self.create_publisher(String, '/poi', 10)
         self.objects_isolated = False
-        
+
+        #classified pub
+        self.classified_poi_pub = self.create_publisher(String, '/classified_poi', 10)
+
         #phase
         self.create_subscription(String, '/phase', self._handle_phase, 10)
         self.phase = None
@@ -138,6 +143,14 @@ class GlobalControllerNode(Node):
     def _on_timer(self) -> None:
         self._publish_state()
         self._log_status_heartbeat()
+        self._publish_waypoints()
+
+    def _publish_waypoints(self) -> None: # publishes classified waypoints every second
+        # TO DO MOVE THIS TO BENS CLASSIFICATION SCRIPT OCE ITS READY
+        s = str([{'x': x, 'y': y, 'phi': phi, 'label': label} for x, y, phi, label in CLASSIFIED_WAYPOINTS])
+        self.get_logger().info(f'Publishing classified poi to GUI: {s}')
+        self.classified_poi_pub.publish(String(data=s))
+        pass
 
     def _send_nav2_goal(self) -> None:
         """Constructs and sends a NavigateToPose Action request to Nav2."""
@@ -238,8 +251,6 @@ class GlobalControllerNode(Node):
                             self._send_nav2_goal()
                             self._current_explore_index += 1
 
-
-            
             elif status == GoalStatus.STATUS_ABORTED: 
                 self.get_logger().warn('Nav2 Aborted (Status 6). Likely a CPU/Timeout spike. Retrying...')
                 # DO NOT transition to WAITING. 
@@ -322,7 +333,6 @@ class GlobalControllerNode(Node):
             self.get_logger().info('Phase 2 detected. Starting object isolation.')
             self.isolate_objects()
 
-
     def isolate_objects(self):
         self.get_logger().info('Isolating objects from costmap...')
         costmap = self.costmap_data
@@ -365,8 +375,6 @@ class GlobalControllerNode(Node):
                         if math.sqrt((object_positions[-1][0] - cx_m)**2  +  (object_positions[-1][1] - cy_m)**2) > 0.80:
                             object_positions.append((cx_m, cy_m, 0.0))
 
-
-
         for i in object_positions:
             angle_calc = round(math.atan2(i[1], i[0]),2)
             new_x = round(i[0] - 1.0 * math.cos(angle_calc),2)
@@ -376,9 +384,7 @@ class GlobalControllerNode(Node):
 
         s = str([{'x': x, 'y': y, 'phi': phi} for x, y, phi in object_positions])
         self.get_logger().info(f'publishing isolated objects: {s}')
-        self.isolated_objects_pub.publish(String(data=s))
-
-    
+        self.poi_pub.publish(String(data=s))
 
 
 def main(args=None) -> None:
