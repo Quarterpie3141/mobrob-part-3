@@ -19,18 +19,17 @@ import numpy as np
 import math
 
 HARDCODED_WAYPOINTS: List[Tuple[float, float, float]] = [
-    (3.0, 0.0, 0.0), 
-    (6.0, 0.0, 3.141), 
-    (3.0, 0.0, 3.141), 
+    (5.0, 0.0, 3.141), 
     (0.0, 0.0, 3.141), 
-    (-2.0, 0.0, 0.0),
-    (0.0, 0.0, 0.0)
+    (-5.0, 0.0, 0.0), 
+    (0.0, 0.0, 3.141)
 ]
 
 EXPLORE_WAYPOINTS: List[Tuple[float, float, float]] = [
+    (0,0,0)
 ]
 
-EXPLORE_WAYPOINTS_FLAG: List[bool] = []
+EXPLORE_WAYPOINTS_FLAG: List[bool] = [False] # parallel list to EXPLORE_WAYPOINTS to indicate if it's been sent to Nav2 yet
 
 CLASSIFIED_WAYPOINTS: List[Tuple[float, float, float, str]] = [
 ]
@@ -262,11 +261,11 @@ class GlobalControllerNode(Node):
                             interm_y = (self._waypoints[-1][1] + self._explore_way[self._current_explore_index][1]) / 2
                             interm_phi =  self._waypoints[-1][2]  # Just keep the same orientation for the intermediate point
                             self._waypoints.append((interm_x, interm_y, interm_phi))
-                            self._explore_way_flag[self._current_explore_index] = False
+                            self._explore_way_flag.append(False) # intermediate point flag is false
                             self.get_logger().info(f'Added intermediate waypoint at X={interm_x}, Y={interm_y}, Phi={interm_phi} to bridge gap to explore point.')
 
                         self._waypoints.append(self._explore_way[self._current_explore_index])
-                        self._explore_way_flag[self._current_explore_index] = True
+                        self._explore_way_flag.append(True)
                         self.get_logger().info("SENDING EXPLORE POI:"+str(self._explore_way[self._current_explore_index]))
                         self.get_logger().info("SENDING EXPLORE POI:"+str(self._explore_way[self._current_explore_index]))
                         self.get_logger().info("SENDING EXPLORE POI:"+str(self._explore_way[self._current_explore_index]))
@@ -280,6 +279,8 @@ class GlobalControllerNode(Node):
                         if self._current_explore_index == 1:
                             # self._current_explore_index += 1
                             self._send_nav2_goal()
+                            self._current_explore_index += 1
+
 
                         #self._current_waypoint_index += 1
 
@@ -360,8 +361,7 @@ class GlobalControllerNode(Node):
 
     def _handle_costmap(self, msg: OccupancyGrid) -> None:
         self.costmap_data = msg
-        self.get_logger().info('Received new costmap data.')
-
+        
     def _handle_phase(self, msg: String) -> None:
         self.phase = msg.data
         # if self.phase == 'phase_2' and self.objects_isolated == False:
