@@ -8,6 +8,7 @@ import time
 import rclpy
 from sensor_msgs.msg import NavSatFix
 from rclpy.node import Node
+from sensor_msgs.msg import Image
 from vision_msgs.msg import Detection2D, Detection2DArray, BoundingBox2D, ObjectHypothesisWithPose
 from cv_bridge import CvBridge
 import cv2
@@ -18,78 +19,55 @@ class DepthAICameraNode(Node):
     def __init__(self):
         super().__init__('depthai_camera_node')
 
-        # Publishers
         self.detection_pub = self.create_publisher(Detection2DArray, "camera/detections", 10)
         self.image_pub = self.create_publisher(Image, "camera/detections/image", 10)
         self.cmd_vel_pub = self.create_publisher(Twist, "/cmd_vel", 10)
         self.slave_status_pub = self.create_publisher(String, '/slave/status', 10)
-        self.object_info_pub = self.create_publisher(String, "/semantic_objects", 10)
-        self.scan_complete_pub = self.create_publisher(Bool, '/scan_complete', 10)
 
-        # Subscribers
         self.bridge = CvBridge()
         self.master_status_sub = self.create_subscription(String, '/master/status', self.master_status_callback, 10)
+        #self.joy_sub = self.create_subscription(Joy, '/joy', self.joy_callback, 10)
         self.odom_sub = self.create_subscription(Odometry, '/Odom', self.odom_callback, 10)
         self.cam_sub = self.create_subscription(Image, 'camera/raw_image', self.cam_sub_callback, 10)
-
-        # Timer
+        self.scan_complete_pub = self.create_publisher(Bool, '/scan_complete', 10)
         self.timer = self.create_timer(0.1, self.timer_callback)
 
-        # State
         self.master_status = None
         self.last_master_status = None
         self.frame = None
         self.results = []
-        self.detected_objects = set()
-        self.position_threshold = 1.0  # meters - same class at new location counts as new detection
         self.framecount = 0
-
-        # Robot pose and velocity
-        self.robot_x = 0.0
-        self.robot_y = 0.0
-        self.robot_yaw = 0.0
-        self.prev_yaw = 0.0
-        self.vx = 0.0
-        self.vy = 0.0
-        self.omega = 0.0
-        self.robot_moving = False
-
-        # Directories
         self.imgdir = os.path.join(os.getcwd(), "img/")
-        os.makedirs(self.imgdir, exist_ok=True)
-        self.modeldir = os.path.join(os.getcwd(), "src", "cv", "models")
-
-        # Detection tuning parameters
+        self.modeldir = os.path.join(os.getcwd(),"src","cv", "models")
+        #START TESTING STUFF
+        #THESE WILL NEED TWEEKING
         self.target_locked_frames = 0
         self.required_locked_frames = 5
         self.center_threshold_px = 60
         self.min_box_area = 25000
 
-        # Search state
         self.picture_taken = False
         self.searching = False
         self.search_start_yaw = 0.0
         self.accumulated_rotation = 0.0
+        self.previous_yaw = 0.0
         self.full_rotation_threshold = 2.0 * math.pi
         self.total_yaw = 0.0
         self.yaw_initialised = False
-
-        # YOLO model
+        #END TESTING STUFF
         weights = os.path.join(self.modeldir, "part3v2.pt")
         self.model = ultralytics.YOLO(weights)
         self.label_map = self.model.names
 
     def cam_sub_callback(self, msg):
         """
-        Camera subscriber callback.
-
-        - Stores latest camera frame
+        - Camera subscriber callback.
+        - Stores the latest camera frame
         - Runs YOLO inference every 3rd frame
-        - Publishes Detection2DArray
-        - Publishes semantic object information
+        - Publishes all detections as a Detection2DArray
         """
-        # if not hasattr(self, 'framecount'):
-        #     self.framecount = 0
+        if not hasattr(self, 'framecount'):
+            self.framecount = 0
 
         self.framecount += 1
 
@@ -107,12 +85,13 @@ class DepthAICameraNode(Node):
             conf=0.7,
             verbose=False
         )
-
         if self.master_status == 'taking picture':
             return
 
         detection_array_msg = Detection2DArray()
+
         time_now = self.get_clock().now().to_msg()
+
         detection_array_msg.header.stamp = time_now
         detection_array_msg.header.frame_id = "camera_link"
 
@@ -122,29 +101,34 @@ class DepthAICameraNode(Node):
                 continue
 
             for box in result.boxes:
+
                 x1, y1, x2, y2 = (
                     box.xyxy[0]
-                    .cpu()
-                    .numpy()
-                    .astype(int)
+                        .cpu()
+                        .numpy()
+                        .astype(int)
                 )
 
                 width = x2 - x1
                 height = y2 - y1
 
-                # filter tiny detections
+                # optional filtering
                 if width * height < self.min_box_area:
                     continue
 
                 detection = Detection2D()
+
                 bbox = BoundingBox2D()
 
                 center_x = float((x1 + x2) / 2.0)
                 center_y = float((y1 + y2) / 2.0)
+
                 bbox.center.position.x = center_x
                 bbox.center.position.y = center_y
+
                 bbox.size_x = float(width)
                 bbox.size_y = float(height)
+
                 detection.bbox = bbox
 
                 cls = int(box.cls[0].cpu().numpy())
@@ -162,33 +146,10 @@ class DepthAICameraNode(Node):
 
                 hypothesis.hypothesis.class_id = classification
                 hypothesis.hypothesis.score = confidence
+
                 detection.results.append(hypothesis)
+
                 detection_array_msg.detections.append(detection)
-                # publish message
-                object_msg = String()
-
-                object_msg.data = (
-                    f"{classification},"
-                    f"{center_x:.1f},"
-                    f"{center_y:.1f},"
-                    f"{width},"
-                    f"{height},"
-                    f"{confidence:.2f},"
-                    f"{self.robot_x:.2f},"
-                    f"{self.robot_y:.2f},"
-                    f"{self.robot_yaw:.2f}"
-                )
-
-                # only publish new classes
-                # only publish if this class hasn't been seen near this location
-                rounded_x = round(self.robot_x / self.position_threshold) * self.position_threshold
-                rounded_y = round(self.robot_y / self.position_threshold) * self.position_threshold
-                detection_key = (classification, rounded_x, rounded_y)
-
-                if detection_key not in self.detected_objects:
-                    self.detected_objects.add(detection_key)
-                    self.object_info_pub.publish(object_msg)
-                    self.get_logger().info(f"Published semantic object: {object_msg.data}")
 
                 cv2.rectangle(
                     self.frame,
@@ -208,13 +169,14 @@ class DepthAICameraNode(Node):
                     2
                 )
 
-        # publish detection array
+        #publish all detections while not in searching mode
         self.detection_pub.publish(detection_array_msg)
-        # publish annotated image
+
         detection_img_msg = self.bridge.cv2_to_imgmsg(
             self.frame,
             encoding="bgr8"
         )
+
         detection_img_msg.header.stamp = time_now
         detection_img_msg.header.frame_id = "camera_link"
 
@@ -297,6 +259,7 @@ class DepthAICameraNode(Node):
 
         """
 
+
         #protect against this locking out/fighting global controller if needed
         if self.master_status != 'taking picture':
             return
@@ -310,7 +273,7 @@ class DepthAICameraNode(Node):
             self.cmd_vel_pub.publish(stop)
 
             self.searching = False
-            self.yaw_initialised = False
+            self.yaw_initialized = False
             self.total_yaw = 0.0
 
             fail_msg = Bool()

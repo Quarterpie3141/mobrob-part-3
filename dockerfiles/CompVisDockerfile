@@ -2,7 +2,6 @@ FROM ubuntu:24.04
 RUN apt update && apt upgrade -y
 RUN apt install software-properties-common -y
 RUN add-apt-repository universe
-#Luisa Dockerfile
 #env variables
 ENV DEBIAN_FRONTEND=noninteractive
 ENV ROS_DOMAIN_ID=8
@@ -20,7 +19,6 @@ RUN apt install ros-jazzy-ros-base -y
 RUN apt install ros-jazzy-rmw-cyclonedds-cpp -y
 ENV RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
 ENV CYCLONEDDS_URI="<CycloneDDS><Domain><General><Interfaces><NetworkInterface name=\"wlp0s20f3\"/></Interfaces></General></Domain></CycloneDDS>" 
-#wlp0s20f3
 # Source ROS on container start
 SHELL ["/bin/bash", "-c"]
 RUN echo "source /opt/ros/jazzy/setup.bash" >> ~/.bashrc
@@ -38,21 +36,14 @@ RUN apt install python3-pip -y
 RUN apt install libusb-1.0-0-dev -y
 #depthai
 RUN python3 -m pip install depthai --break-system-packages
-RUN apt update && apt install -y python3-pip python3-venv
-RUN python3 -m venv /opt/venv --system-site-packages
-ENV PATH="/opt/venv/bin:$PATH"
-RUN /opt/venv/bin/pip install --upgrade pip setuptools wheel
-RUN /opt/venv/bin/pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
-RUN /opt/venv/bin/pip install ultralytics --break-system-packages
-RUN /opt/venv/bin/pip install "numpy<2"
 #cv_bridge
-RUN apt update && apt install ros-jazzy-cv-bridge -y
-RUN apt update && apt install ros-jazzy-vision-msgs -y
+RUN apt install ros-jazzy-cv-bridge -y
+RUN apt install ros-jazzy-vision-msgs -y
 #copy src dir and setup workspace
 COPY ros2ws /opt/ros2ws
 WORKDIR /opt/ros2ws
 RUN chmod 777 -R /opt/ros2ws
-#build all packages in the workspace
-RUN . /opt/ros/jazzy/setup.bash && /opt/venv/bin/python -m colcon build --packages-select cv --symlink-install 
+#build image_publisher package
+RUN source /opt/ros/jazzy/setup.bash && colcon build --packages-select image_publisher
 RUN echo "source /opt/ros2ws/install/setup.bash" >> ~/.bashrc
-CMD ["bash", "-lc", "source /opt/venv/bin/activate && source /opt/ros/jazzy/setup.bash && source /opt/ros2ws/install/setup.bash && ros2 run cv cv_node"]
+CMD ["bash", "-lc", "source /opt/ros/jazzy/setup.bash && source /opt/ros2ws/install/setup.bash && ros2 run image_publisher image_publisher"]
