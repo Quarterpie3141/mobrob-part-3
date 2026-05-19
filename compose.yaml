@@ -77,3 +77,15 @@ services:
     restart: unless-stopped
     volumes:
       - /dev:/dev
+
+mobrob_compvis:
+    build:
+      context: .
+      dockerfile: dockerfiles/CompVisDockerfile
+    pull_policy: build
+    network_mode: host
+    stdin_open: true
+    tty: true
+    privileged: true
+    volumes:
+      - /dev:/dev
