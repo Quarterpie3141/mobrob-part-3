@@ -91,6 +91,11 @@ class GlobalControllerNode(Node):
         self.create_subscription(String, '/phase', self._handle_phase, 10)
         self.phase = None
 
+        #detect letter signal publisher
+        self.start_letter_detection_pub = self.create_publisher(String, '/check_label', 10)
+        self.letter_detection_sub = self.create_subscription(String, '/letter_detection', self.letter_detection_callback, 10)
+        self.last_detected_letter = None
+
         # Nav2 Action Client
         self._nav_client = ActionClient(self, NavigateToPose, 'navigate_to_pose')
         
@@ -100,6 +105,9 @@ class GlobalControllerNode(Node):
         self.get_logger().info(f'Loaded {len(self._waypoints)} Nav2 waypoints.')
         self._publish_state()
         self.get_logger().info(f'Global controller started in state: {self._state.value}')
+
+    def letter_detection_callback(self, msg: String) -> None:
+        self.last_detected_letter = msg.data
 
     def _handle_slave_status(self, msg: String) -> None:
         command = msg.data.strip().lower()
@@ -220,6 +228,27 @@ class GlobalControllerNode(Node):
                         if self._current_explore_index != 1:
                             #cv detection drive stuff
                             #TAKE PHOTO HERE
+                            #classified waypoints
+                            self.last_detected_letter = None # reset last detected letter before taking photo
+                            while self.last_detected_letter is None:
+                                self.start_letter_detection_pub.publish(String(data="classify"))
+                            
+                            x = self._explore_way[self._current_explore_index][0]
+                            y = self._explore_way[self._current_explore_index][1]
+                            phi = self._explore_way[self._current_explore_index][2]
+                            CLASSIFIED_WAYPOINT.append((x, y, phi, self.last_detected_letter))
+
+
+
+
+
+
+
+
+
+
+
+
                             self.get_logger().info('SHOULD BE taking picture at POI...')
                             self.get_logger().info('SHOULD BE taking picture at POI...')
                             self.get_logger().info('SHOULD BE taking picture at POI...')
