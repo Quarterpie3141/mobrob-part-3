@@ -123,6 +123,10 @@ class GlobalControllerNode(Node):
             phi = self._explore_way[self._current_explore_index][2]
             CLASSIFIED_WAYPOINTS.append((x, y, phi, self.last_detected_letter))
 
+            s = str([{'x': x, 'y': y, 'phi': phi, 'label': label} for x, y, phi, label in CLASSIFIED_WAYPOINTS])
+            self.get_logger().info(f'Publishing classified poi to GUI: {s}')
+            self.classified_poi_pub.publish(String(data=s))
+
             self.last_detected_letter = None # reset last detected letter before next classification
 
 
@@ -186,9 +190,7 @@ class GlobalControllerNode(Node):
 
     def _publish_waypoints(self) -> None: # publishes classified waypoints every second
         # TO DO MOVE THIS TO BENS CLASSIFICATION SCRIPT OCE ITS READY
-        s = str([{'x': x, 'y': y, 'phi': phi, 'label': label} for x, y, phi, label in CLASSIFIED_WAYPOINTS])
-        self.get_logger().info(f'Publishing classified poi to GUI: {s}')
-        self.classified_poi_pub.publish(String(data=s))
+        
         pass
 
     def _send_nav2_goal(self) -> None:
@@ -266,6 +268,12 @@ class GlobalControllerNode(Node):
                         self.get_logger().info("SENDING EXPLORE POI:"+str(self._explore_way[self._current_explore_index]))
                         self.get_logger().info("SENDING EXPLORE POI:"+str(self._explore_way[self._current_explore_index]))
                         self.get_logger().info("SENDING EXPLORE POI:"+str(self._explore_way[self._current_explore_index]))
+
+                        
+                        
+                        if self._current_explore_index == 1:
+                            self._current_explore_index += 1
+                            self._send_nav2_goal()
 
                         #self._current_waypoint_index += 1
 
