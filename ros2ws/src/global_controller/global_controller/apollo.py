@@ -7,113 +7,275 @@ from rclpy.node import Node
 from sensor_msgs.msg import NavSatFix
 from std_msgs.msg import String
 
-# Hardcoded waypoints (Lat, Lon, Alt)
+# Nav2 Additions
+from rclpy.action import ActionClient
+from nav2_msgs.action import NavigateToPose 
+from action_msgs.msg import GoalStatus # Add this import at the top
+from nav_msgs.msg import OccupancyGrid
+
+
+import cv2
+import numpy as np
+import math
+
 HARDCODED_WAYPOINTS: List[Tuple[float, float, float]] = [
-    (-31.9805064, 115.8177856, 180.0),
-    (-31.9803605, 115.8177973, 90.0),
-    (-31.9801137, 115.8178302, 30.0)
+    (3.0, 0.0, 0.0), 
+    (6.0, 0.0, 3.141), 
+    (3.0, 0.0, 3.141), 
+    (0.0, 0.0, 3.141), 
+    (-2.0, 0.0, 0.0),
+    (0.0, 0.0, 0.0)
 ]
 
-class ControllerState(str, Enum):
+EXPLORE_WAYPOINTS: List[Tuple[float, float, float]] = [
+    (0.0, 0.0, 0.0)
+]
+
+class ControllerState(str, Enum):   
     WAITING = 'waiting for transition to autonomous mode'
     DRIVING = 'driving to waypoint'
     TAKING_PICTURE = 'taking picture'
     STOPPED = 'stopped'
 
+def yaw_to_quaternion(yaw: float) -> Tuple[float, float, float, float]:
+    """
+    Converts a yaw angle (in radians) to a fully normalized unit quaternion (x, y, z, w).
+    Guarantees compatibility with Nav2/tf2.
+    """
+    half_yaw = yaw * 0.5
+    qz = math.sin(half_yaw)
+    qw = math.cos(half_yaw)
+    
+    # Explicit normalization safety check
+    magnitude = math.sqrt(qz**2 + qw**2)
+    if magnitude > 0.0:
+        qz /= magnitude
+        qw /= magnitude
+        
+    return (0.0, 0.0, qz, qw)
+
+
 class GlobalControllerNode(Node):
     def __init__(self) -> None:
         super().__init__('global_controller')
 
-        self.declare_parameter('goal_publish_period_sec', 1.0)
         self.declare_parameter('status_log_period_sec', 2.0)
-
-        # Initialize waypoints list with hardcoded values
-        self._waypoints = list(HARDCODED_WAYPOINTS)
-        self._goal_publish_period = float(self.get_parameter('goal_publish_period_sec').value)
         self._status_log_period = float(self.get_parameter('status_log_period_sec').value)
 
+        #waypoints
+        self._waypoints = list(HARDCODED_WAYPOINTS)
+        self._explore_way = list(EXPLORE_WAYPOINTS)
         self._state = ControllerState.WAITING
         self._current_waypoint_index = 0
-        self._last_goal_index: Optional[int] = None
+        self._current_explore_index = 1
         self._last_state_log_time = self.get_clock().now()
-        self._start_position: Optional[Tuple[float, float, float]] = None
-        self._start_waypoint_added = False
+    
+        self._goal_handle = None
+        self._action_future = None
 
-        # Publishers
+        # status publish
+        self._gui_nav2_goal_pub = self.create_publisher(String, '/gui/nav2_goal', 10)
         self._master_status_pub = self.create_publisher(String, '/master/status', 10)
-        self._goal_pub = self.create_publisher(String, '/gnss/goal', 10)
         
-        # Subscriptions
         self.create_subscription(String, '/slave/status', self._handle_slave_status, 10)
-        self.create_subscription(NavSatFix, '/gnss/fix', self._handle_gnss_fix, 10)
+
+        #cost map sub
+        self.create_subscription(OccupancyGrid, '/map', self._handle_costmap, 10)
+        self.costmap_data = None
+
+        #isolated objects pub
+        self.isolated_objects_pub = self.create_publisher(String, '/poi', 10)
+        self.objects_isolated = False
         
-        # Timer
-        self.create_timer(self._goal_publish_period, self._on_timer)
+        #phase
+        self.create_subscription(String, '/phase', self._handle_phase, 10)
+        self.phase = None
 
-        if not self._waypoints:
-            self.get_logger().warn('No hardcoded waypoints loaded.')
-        else:
-            self.get_logger().info(f'Loaded {len(self._waypoints)} hardcoded waypoint(s).')
+        # Nav2 Action Client
+        self._nav_client = ActionClient(self, NavigateToPose, 'navigate_to_pose')
+        
+        #timer 
+        self.create_timer(1.0, self._on_timer)
 
+        self.get_logger().info(f'Loaded {len(self._waypoints)} Nav2 waypoints.')
         self._publish_state()
         self.get_logger().info(f'Global controller started in state: {self._state.value}')
 
-    def _handle_gnss_fix(self, msg: NavSatFix) -> None:
-        """Captures the first valid GNSS fix as the 'Home' return point."""
-        if self._start_waypoint_added:
-            return
-
-        if not math.isfinite(msg.latitude) or not math.isfinite(msg.longitude):
-            return
-
-        self._start_position = (msg.latitude, msg.longitude, msg.altitude)
-        self._waypoints.append(self._start_position)
-        self._start_waypoint_added = True
-
-        self.get_logger().info(
-            f'[GPS] HOME CAPTURED: lat={msg.latitude}, lon={msg.longitude}. '
-            f'Total waypoints in mission: {len(self._waypoints)}'
-        )
-
     def _handle_slave_status(self, msg: String) -> None:
         command = msg.data.strip().lower()
-        self.get_logger().info(f'Received /slave/status: {command}')
+        # logging this every time can flood the console, but good for now
+        # self.get_logger().info(f'Received /slave/status: {command}')
 
+        # FIX: Only allow the 'waiting' command to reset the mission if we aren't 
+        # currently in the middle of an active Nav2 goal.
         if command == 'waiting':
-            self._current_waypoint_index = 0
-            self._last_goal_index = None
-            self._transition_to(ControllerState.WAITING)
+            if self._state != ControllerState.DRIVING:
+                self._cancel_current_nav_goal()
+                self._current_waypoint_index = 0
+                self._transition_to(ControllerState.WAITING)
             return
 
-        # Transition from WAITING to DRIVING
         if self._state == ControllerState.WAITING and command == 'transition':
             if self._has_waypoints_remaining():
                 self._transition_to(ControllerState.DRIVING)
-                self._publish_current_goal(force=True)
+                self._send_nav2_goal()
             else:
                 self.get_logger().warn('Cannot drive: No waypoints available.')
                 self._transition_to(ControllerState.STOPPED)
             return
 
-        # Advance mission logic
-        if self._state == ControllerState.DRIVING and command == 'finished':
-            # self._advance_mission()
-            self._transition_to(ControllerState.TAKING_PICTURE)
+        if self._state == ControllerState.TAKING_PICTURE and command == 'picture_done':
+            self._advance_mission()
             return
 
-        # Restart from STOPPED
+        # Restart from Stopped
         if self._state == ControllerState.STOPPED and command == 'transition':
             if self._has_waypoints_remaining():
+                self._current_waypoint_index = 0 # Reset to start if coming from Stopped
                 self._transition_to(ControllerState.DRIVING)
-                self._publish_current_goal(force=True)
+                self._send_nav2_goal()
 
     def _on_timer(self) -> None:
         self._publish_state()
         self._log_status_heartbeat()
 
-        if self._state == ControllerState.DRIVING:
-            self._publish_current_goal()
+    def _send_nav2_goal(self) -> None:
+        """Constructs and sends a NavigateToPose Action request to Nav2."""
+        if not self._has_waypoints_remaining():
+            self._transition_to(ControllerState.STOPPED)
+            return
 
+        self.get_logger().info('Waiting for Nav2 "navigate_to_pose" action server...')
+        if not self._nav_client.wait_for_server(timeout_sec=2.0):
+            self.get_logger().error('Nav2 action server not available! Aborting goal send.')
+            return
+
+        x, y, phi = self._waypoints[self._current_waypoint_index]
+        qx, qy, qz, qw = yaw_to_quaternion(phi)
+
+        goal_msg = NavigateToPose.Goal()
+        goal_msg.pose.header.frame_id = 'map'
+        goal_msg.pose.header.stamp = self.get_clock().now().to_msg()
+        
+        goal_msg.pose.pose.position.x = x
+        goal_msg.pose.pose.position.y = y
+        goal_msg.pose.pose.position.z = 0.0
+        
+        goal_msg.pose.pose.orientation.x = qx
+        goal_msg.pose.pose.orientation.y = qy
+        goal_msg.pose.pose.orientation.z = qz
+        goal_msg.pose.pose.orientation.w = qw
+
+        self.get_logger().info(f'[NAV2 GOAL] Sending Target Index {self._current_waypoint_index}: X={x}, Y={y}, Phi={phi}')
+        self._gui_nav2_goal_pub.publish(String(data=f'{x},{y},{phi}'))
+        self._action_future = self._nav_client.send_goal_async(goal_msg)
+        self._action_future.add_done_callback(self._goal_response_callback)
+
+    def _goal_response_callback(self, future):
+            self._goal_handle = future.result() # Store the handle so we can cancel it later
+            if not self._goal_handle.accepted:
+                self.get_logger().error('Goal rejected by Nav2')
+                return
+            
+            self._result_future = self._goal_handle.get_result_async()
+            self._result_future.add_done_callback(self._get_result_callback)
+    
+    def _get_result_callback(self, future):
+            status = future.result().status
+            
+            if status == GoalStatus.STATUS_SUCCEEDED:
+                self.get_logger().info('Goal succeeded! Moving to next waypoint.')
+                self._current_waypoint_index += 1
+                if self._current_waypoint_index < len(self._waypoints):
+                    self._send_nav2_goal()
+                else:
+                    self.get_logger().info('Mapping Initial Complete!')
+                    #self._transition_to(ControllerState.STOPPED)
+                    #call stuff here
+                    if self._current_explore_index ==1:
+                        self.isolate_objects()
+
+                    if self._current_explore_index < len(self._explore_way):
+                        dist_btw_points = math.sqrt((self._explore_way[self._current_explore_index][0] - self._waypoints[-1][0])**2 + (self._explore_way[self._current_explore_index][1] - self._waypoints[-1][1])**2)
+                        self.get_logger().info(f'Distance from last waypoint to next explore point: {dist_btw_points} meters')
+                        if dist_btw_points > 4.0:
+                            self.get_logger().warn('Next explore point is quite far from last waypoint. Consider adding intermediate waypoints for better navigation.')
+                            interm_x = (self._waypoints[-1][0] + self._explore_way[self._current_explore_index][0]) / 2
+                            interm_y = (self._waypoints[-1][1] + self._explore_way[self._current_explore_index][1]) / 2
+                            interm_phi =  self._waypoints[-1][2]  # Just keep the same orientation for the intermediate point
+                            self._waypoints.append((interm_x, interm_y, interm_phi))
+                            self.get_logger().info(f'Added intermediate waypoint at X={interm_x}, Y={interm_y}, Phi={interm_phi} to bridge gap to explore point.')
+
+                        self._waypoints.append(self._explore_way[self._current_explore_index])
+                        self.get_logger().info("SENDING EXPLORE POI:"+str(self._explore_way[self._current_explore_index]))
+                        self.get_logger().info("SENDING EXPLORE POI:"+str(self._explore_way[self._current_explore_index]))
+                        self.get_logger().info("SENDING EXPLORE POI:"+str(self._explore_way[self._current_explore_index]))
+                        self.get_logger().info("SENDING EXPLORE POI:"+str(self._explore_way[self._current_explore_index]))
+                        self.get_logger().info("SENDING EXPLORE POI:"+str(self._explore_way[self._current_explore_index]))
+                        self.get_logger().info("SENDING EXPLORE POI:"+str(self._explore_way[self._current_explore_index]))
+                        self.get_logger().info("SENDING EXPLORE POI:"+str(self._explore_way[self._current_explore_index]))
+
+                        #self._current_waypoint_index += 1
+
+                        if self._current_explore_index != 1:
+                            #cv detection drive stuff
+                            #TAKE PHOTO HERE
+                            self.get_logger().info('SHOULD BE taking picture at POI...')
+                            self.get_logger().info('SHOULD BE taking picture at POI...')
+                            self.get_logger().info('SHOULD BE taking picture at POI...')
+                            self.get_logger().info('SHOULD BE taking picture at POI...')
+                            self.get_logger().info('SHOULD BE taking picture at POI...')
+                            self.get_logger().info('SHOULD BE taking picture at POI...')
+
+                        if self._current_waypoint_index < len(self._waypoints):
+                            self.get_logger().info(" EXPLORE POI:"+str(self._explore_way[self._current_explore_index]))
+                            self.get_logger().info(" EXPLORE POI:"+str(self._explore_way[self._current_explore_index]))
+                            self.get_logger().info(" EXPLORE POI:"+str(self._explore_way[self._current_explore_index]))
+                            self.get_logger().info(" EXPLORE POI:"+str(self._explore_way[self._current_explore_index]))
+                            self.get_logger().info(" EXPLORE POI:"+str(self._explore_way[self._current_explore_index]))
+                            self.get_logger().info(" EXPLORE POI:"+str(self._explore_way[self._current_explore_index]))
+                            self.get_logger().info(" EXPLORE POI:"+str(self._explore_way[self._current_explore_index]))
+                            self._send_nav2_goal()
+                            self._current_explore_index += 1
+
+
+            
+            elif status == GoalStatus.STATUS_ABORTED: 
+                self.get_logger().warn('Nav2 Aborted (Status 6). Likely a CPU/Timeout spike. Retrying...')
+                # DO NOT transition to WAITING. 
+                # Use a timer to retry so we don't spam the server instantly
+                self.retry_timer = self.create_timer(2.0, self._handle_oneshot_retry)                
+            else:
+                # For other failures (Canceled, etc.), now we can halt
+                self.get_logger().error(f'Goal failed with status code: {status}. Mission Halted.')
+                self._transition_to(ControllerState.WAITING)
+    
+    def _handle_oneshot_retry(self):
+        self.retry_timer.cancel()  # Kill it immediately so it only runs once
+        self._retry_current_waypoint()
+    
+    def _retry_current_waypoint(self):
+        """Helper to resend the goal without resetting the mission."""
+        self.get_logger().info(f'Retrying waypoint {self._current_waypoint_index + 1}...')
+        self._send_nav2_goal()
+
+    def _cancel_current_nav_goal(self) -> None:
+        if self._goal_handle is not None:
+            self.get_logger().info('Canceling current Nav2 goal execution.')
+            self._goal_handle.cancel_goal_async()
+            self._goal_handle = None
+
+    def _advance_mission(self) -> None:
+        self._current_waypoint_index += 1
+
+        if self._has_waypoints_remaining():
+            self.get_logger().info(f'Advancing to next waypoint (Index {self._current_waypoint_index})')
+            self._transition_to(ControllerState.DRIVING)
+            self._send_nav2_goal()
+        else:
+            self.get_logger().info('Mission Complete. All waypoints reached.')
+            self._transition_to(ControllerState.STOPPED)
+        
     def _transition_to(self, new_state: ControllerState) -> None:
         if self._state == new_state:
             return
@@ -141,37 +303,83 @@ class GlobalControllerNode(Node):
             f'remaining={max(0, total - curr)}'
         )
         self._last_state_log_time = now
-
-    def _publish_current_goal(self, force: bool = False) -> None:
-        if not self._has_waypoints_remaining():
-            self._transition_to(ControllerState.STOPPED)
-            return
-
-        lat, lon, alt = self._waypoints[self._current_waypoint_index]
-        goal_msg = String()
-        goal_msg.data = f'{lat},{lon},{alt}'
-        self._goal_pub.publish(goal_msg)
-
-        if force or self._last_goal_index != self._current_waypoint_index:
-            self.get_logger().info(f'[GOAL] Targeted index {self._current_waypoint_index}: {lat}, {lon}')
-        
-        self._last_goal_index = self._current_waypoint_index
-
-    def _advance_mission(self) -> None:
-        """Increments the index and checks if there are more points (like Home) to visit."""
-        self._current_waypoint_index += 1
-        self._last_goal_index = None
-
-        if self._has_waypoints_remaining():
-            self.get_logger().info(f'Advancing to next waypoint (Index {self._current_waypoint_index})')
-            self._transition_to(ControllerState.DRIVING)
-            self._publish_current_goal(force=True)
-        else:
-            self.get_logger().info('Mission Complete. All waypoints (including Home) reached.')
-            self._transition_to(ControllerState.STOPPED)
-        
+            
     def _has_waypoints_remaining(self) -> bool:
         return self._current_waypoint_index < len(self._waypoints)
+
+    def _handle_costmap(self, msg: OccupancyGrid) -> None:
+        self.costmap_data = msg
+        self.get_logger().info('Received new costmap data.')
+
+    def _handle_phase(self, msg: String) -> None:
+        self.phase = msg.data
+        # if self.phase == 'phase_2' and self.objects_isolated == False:
+        #     self.objects_isolated = True
+        #     self.isolate_objects()
+        self.get_logger().info(f'Received phase update: {self.phase}')
+
+        if self.phase == 'phase_2':
+            self.get_logger().info('Phase 2 detected. Starting object isolation.')
+            self.isolate_objects()
+
+
+    def isolate_objects(self):
+        self.get_logger().info('Isolating objects from costmap...')
+        costmap = self.costmap_data
+        object_positions = []
+        #conver to binary image
+        grid = np.array(costmap.data, dtype=np.int8).reshape(
+        costmap.info.height, costmap.info.width
+        )
+        img = np.zeros_like(grid, dtype=np.uint8)
+        img[grid == 100] = 255      # occupied  → white
+        img[grid == 0]   = 0        # free      → black
+        img[grid == -1]  = 0        # unknown   → black (or 127 if you want it visible)
+        _, binary = cv2.threshold(img, 250, 255, cv2.THRESH_BINARY)
+
+                
+        kernel = np.ones((3, 3), np.uint8)
+        # dilated = cv2.dilate(binary, kernel, iterations=1)
+       
+        num_labels, labels, stats, centroids = cv2.connectedComponentsWithStats(binary)
+
+        #Apply minimum area
+        min_area = 5
+        max_area = 100
+        for i in range(1, num_labels):
+            if stats[i, cv2.CC_STAT_AREA] > min_area and stats[i, cv2.CC_STAT_AREA] < max_area:
+                #find x,y coords
+                res = costmap.info.resolution 
+                area_m2 = stats[i, cv2.CC_STAT_AREA] * (res ** 2)
+                w_m     = stats[i, cv2.CC_STAT_WIDTH]  * res
+                h_m     = stats[i, cv2.CC_STAT_HEIGHT] * res
+
+                cx_m = centroids[i][0] * res + costmap.info.origin.position.x
+                cy_m = centroids[i][1] * res + costmap.info.origin.position.y
+
+            
+                if abs(cx_m) < 10 and abs(cy_m) < 7 and math.sqrt(cx_m**2 + cy_m**2) < 11.0: # sanity check to filter out bad detections near the robot
+                    if len(object_positions) == 0:
+                        object_positions.append((cx_m, cy_m, 0.0))
+                    else: 
+                        if math.sqrt((object_positions[-1][0] - cx_m)**2  +  (object_positions[-1][1] - cy_m)**2) > 0.80:
+                            object_positions.append((cx_m, cy_m, 0.0))
+
+
+
+        for i in object_positions:
+            angle_calc = round(math.atan2(i[1], i[0]),2)
+            new_x = round(i[0] - 1.0 * math.cos(angle_calc),2)
+            new_y = round(i[1] - 1.0 * math.sin(angle_calc),2)
+            self._explore_way.append((new_x, new_y, angle_calc))
+
+
+        s = str([{'x': x, 'y': y, 'phi': phi} for x, y, phi in object_positions])
+        self.get_logger().info(f'publishing isolated objects: {s}')
+        self.isolated_objects_pub.publish(String(data=s))
+
+    
+
 
 def main(args=None) -> None:
     rclpy.init(args=args)
