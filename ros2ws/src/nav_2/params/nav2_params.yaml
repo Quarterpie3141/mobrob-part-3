@@ -14,7 +14,7 @@ bt_navigator:
 controller_server:
   ros__parameters:
     use_sim_time: false
-    controller_frequency: 20.0
+    controller_frequency: 5.0
     min_x_velocity_threshold: 0.001
     min_y_velocity_threshold: 0.5
     min_theta_velocity_threshold: 0.001
@@ -29,19 +29,19 @@ controller_server:
       stateful: true
     FollowPath:
       plugin: nav2_mppi_controller::MPPIController
-      time_steps: 56
-      model_dt: 0.05
+      time_steps: 30
+      model_dt: 0.2
       batch_size: 2000
       vx_std: 0.2
       vy_std: 0.0
       wz_std: 0.4
-      vx_max: 0.5
+      vx_max: 0.3
       vx_min: -0.35
       vy_max: 0.0
-      wz_max: 1.9
+      wz_max: 1.0
       iteration_count: 1
       prune_distance: 1.7
-      transform_tolerance: 0.3
+      transform_tolerance: 0.5
       temperature: 0.3
       gamma: 0.015
       motion_model: DiffDrive
@@ -200,7 +200,7 @@ behavior_server:
     use_sim_time: false
     costmap_topic: local_costmap/costmap_raw
     footprint_topic: local_costmap/published_footprint
-    cycle_frequency: 10.0
+    cycle_frequency: 5.0
     behavior_plugins:
       - spin
       - backup
@@ -213,7 +213,7 @@ behavior_server:
       plugin: nav2_behaviors::Wait
     global_frame: odom
     robot_base_frame: base_link
-    transform_tolerance: 0.3
+    transform_tolerance: 0.5
     simulate_ahead_time: 2.0
     max_rotational_vel: 1.0
     min_rotational_vel: 0.4
@@ -255,13 +255,13 @@ map_saver:
 velocity_smoother:
   ros__parameters:
     use_sim_time: false
-    smoothing_frequency: 20.0
+    smoothing_frequency: 5.0
     scale_velocities: false
     feedback: OPEN_LOOP
-    max_velocity: [0.5, 0.0, 2.0]
-    min_velocity: [-0.35, 0.0, -2.0]
-    max_accel: [2.5, 0.0, 3.2]
-    max_decel: [-2.5, 0.0, -3.2]
+    max_velocity: [0.3, 0.0, 1.0]
+    min_velocity: [-0.35, 0.0, -1.0]
+    max_accel: [2.0, 0.0, 3.0]
+    max_decel: [-2.0, 0.0, -3.0]
     odom_topic: odometry/filtered
     odom_duration: 0.1
     deadband_velocity: [0.0, 0.0, 0.0]

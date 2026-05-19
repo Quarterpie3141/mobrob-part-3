@@ -19,13 +19,16 @@ import numpy as np
 import math
 
 HARDCODED_WAYPOINTS: List[Tuple[float, float, float]] = [
-    (0.0, 0.0, 0.0), 
-    (0.0, 0.0, 0.0), 
-    # (10.0, 0.0, 3.141), 
-    # (5.0, 0.0, 3.141), 
-    # (0.0, 0.0, 3.141), 
-    # (-5.0, 0.0, 0.0),
-    # (0.0, 0.0, 0.0)
+    (3.0, 0.0, 0.0), 
+    (6.0, 0.0, 3.141), 
+    (3.0, 0.0, 3.141), 
+    (0.0, 0.0, 3.141), 
+    (-2.0, 0.0, 0.0),
+    (0.0, 0.0, 0.0)
+]
+
+EXPLORE_WAYPOINTS: List[Tuple[float, float, float]] = [
+    (0.0, 0.0, 0.0)
 ]
 
 class ControllerState(str, Enum):   
@@ -61,8 +64,10 @@ class GlobalControllerNode(Node):
 
         #waypoints
         self._waypoints = list(HARDCODED_WAYPOINTS)
+        self._explore_way = list(EXPLORE_WAYPOINTS)
         self._state = ControllerState.WAITING
         self._current_waypoint_index = 0
+        self._current_explore_index = 1
         self._last_state_log_time = self.get_clock().now()
     
         self._goal_handle = None
@@ -205,6 +210,56 @@ class GlobalControllerNode(Node):
                                         self.trigger_slam_pause()
                             
                 
+                    self.get_logger().info('Mapping Initial Complete!')
+                    #self._transition_to(ControllerState.STOPPED)
+                    #call stuff here
+                    if self._current_explore_index ==1:
+                        self.isolate_objects()
+
+                    if self._current_explore_index < len(self._explore_way):
+                        dist_btw_points = math.sqrt((self._explore_way[self._current_explore_index][0] - self._waypoints[-1][0])**2 + (self._explore_way[self._current_explore_index][1] - self._waypoints[-1][1])**2)
+                        self.get_logger().info(f'Distance from last waypoint to next explore point: {dist_btw_points} meters')
+                        if dist_btw_points > 4.0:
+                            self.get_logger().warn('Next explore point is quite far from last waypoint. Consider adding intermediate waypoints for better navigation.')
+                            interm_x = (self._waypoints[-1][0] + self._explore_way[self._current_explore_index][0]) / 2
+                            interm_y = (self._waypoints[-1][1] + self._explore_way[self._current_explore_index][1]) / 2
+                            interm_phi =  self._waypoints[-1][2]  # Just keep the same orientation for the intermediate point
+                            self._waypoints.append((interm_x, interm_y, interm_phi))
+                            self.get_logger().info(f'Added intermediate waypoint at X={interm_x}, Y={interm_y}, Phi={interm_phi} to bridge gap to explore point.')
+
+                        self._waypoints.append(self._explore_way[self._current_explore_index])
+                        self.get_logger().info("SENDING EXPLORE POI:"+str(self._explore_way[self._current_explore_index]))
+                        self.get_logger().info("SENDING EXPLORE POI:"+str(self._explore_way[self._current_explore_index]))
+                        self.get_logger().info("SENDING EXPLORE POI:"+str(self._explore_way[self._current_explore_index]))
+                        self.get_logger().info("SENDING EXPLORE POI:"+str(self._explore_way[self._current_explore_index]))
+                        self.get_logger().info("SENDING EXPLORE POI:"+str(self._explore_way[self._current_explore_index]))
+                        self.get_logger().info("SENDING EXPLORE POI:"+str(self._explore_way[self._current_explore_index]))
+                        self.get_logger().info("SENDING EXPLORE POI:"+str(self._explore_way[self._current_explore_index]))
+
+                        #self._current_waypoint_index += 1
+
+                        if self._current_explore_index != 1:
+                            #cv detection drive stuff
+                            #TAKE PHOTO HERE
+                            self.get_logger().info('SHOULD BE taking picture at POI...')
+                            self.get_logger().info('SHOULD BE taking picture at POI...')
+                            self.get_logger().info('SHOULD BE taking picture at POI...')
+                            self.get_logger().info('SHOULD BE taking picture at POI...')
+                            self.get_logger().info('SHOULD BE taking picture at POI...')
+                            self.get_logger().info('SHOULD BE taking picture at POI...')
+
+                        if self._current_waypoint_index < len(self._waypoints):
+                            self.get_logger().info(" EXPLORE POI:"+str(self._explore_way[self._current_explore_index]))
+                            self.get_logger().info(" EXPLORE POI:"+str(self._explore_way[self._current_explore_index]))
+                            self.get_logger().info(" EXPLORE POI:"+str(self._explore_way[self._current_explore_index]))
+                            self.get_logger().info(" EXPLORE POI:"+str(self._explore_way[self._current_explore_index]))
+                            self.get_logger().info(" EXPLORE POI:"+str(self._explore_way[self._current_explore_index]))
+                            self.get_logger().info(" EXPLORE POI:"+str(self._explore_way[self._current_explore_index]))
+                            self.get_logger().info(" EXPLORE POI:"+str(self._explore_way[self._current_explore_index]))
+                            self._send_nav2_goal()
+                            self._current_explore_index += 1
+
+
             
             elif status == GoalStatus.STATUS_ABORTED: 
                 self.get_logger().warn('Nav2 Aborted (Status 6). Likely a CPU/Timeout spike. Retrying...')
@@ -353,7 +408,12 @@ class GlobalControllerNode(Node):
 
 
         for i in object_positions:
-            self._waypoints.append((i[0], i[1], i[2]))
+            angle_calc = round(math.atan2(i[1], i[0]),2)
+            new_x = round(i[0] - 1.0 * math.cos(angle_calc),2)
+            new_y = round(i[1] - 1.0 * math.sin(angle_calc),2)
+            self._explore_way.append((new_x, new_y, angle_calc))
+
+
         s = str([{'x': x, 'y': y, 'phi': phi} for x, y, phi in object_positions])
         self.get_logger().info(f'publishing isolated objects: {s}')
         self.isolated_objects_pub.publish(String(data=s))
