@@ -242,6 +242,9 @@ class GlobalControllerNode(Node):
             
             if status == GoalStatus.STATUS_SUCCEEDED:
                 self.get_logger().info('Goal succeeded! Moving to next waypoint.')
+
+
+
                 self._current_waypoint_index += 1
                 if self._current_waypoint_index < len(self._waypoints):
                     self._send_nav2_goal()
@@ -274,7 +277,12 @@ class GlobalControllerNode(Node):
                         self.get_logger().info("SENDING EXPLORE POI:"+str(self._explore_way[self._current_explore_index]))
                         self.get_logger().info("SENDING EXPLORE POI:"+str(self._explore_way[self._current_explore_index]))
 
-                        
+                        if self._current_explore_index != 1 and self._explore_way_flag[self._current_explore_index] == True:
+                            #cv detection drive stuff
+                            #TAKE PHOTO HERE
+                            #classified waypoints
+
+                            self.start_letter_detection_pub.publish(String(data="classify"))
                         
                         if self._current_explore_index == 1:
                             # self._current_explore_index += 1
@@ -284,12 +292,7 @@ class GlobalControllerNode(Node):
 
                         #self._current_waypoint_index += 1
 
-                        if self._current_explore_index != 1 and self._explore_way_flag[self._current_explore_index] == True:
-                            #cv detection drive stuff
-                            #TAKE PHOTO HERE
-                            #classified waypoints
-
-                            self.start_letter_detection_pub.publish(String(data="classify"))
+                        
                            
 
             elif status == GoalStatus.STATUS_ABORTED: 
