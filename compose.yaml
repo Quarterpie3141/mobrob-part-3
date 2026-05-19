@@ -78,7 +78,7 @@ services:
     volumes:
       - /dev:/dev
 
-mobrob_compvis:
+  mobrob_compvis:
     build:
       context: .
       dockerfile: dockerfiles/CompVisDockerfile
