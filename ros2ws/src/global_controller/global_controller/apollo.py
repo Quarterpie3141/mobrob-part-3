@@ -203,7 +203,7 @@ class GlobalControllerNode(Node):
                     self._send_nav2_goal()
                 else:
                     self.get_logger().info('Mission Complete!')
-                    self._transition_to(ControllerState.WAITING)
+                    #self._transition_to(ControllerState.WAITING)
                     
                     # Safely fires off the transition only if the background check passed
                     if self.slam_service_ready and not self.localisation_mode_active:
