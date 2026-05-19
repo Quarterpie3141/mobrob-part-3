@@ -8,8 +8,7 @@ const ctx = canvas.getContext('2d');
 let robotPose = { x: 0, y: 0, theta: 0 };
 let currentGoal = null;
 let pois = [];  // Array of { x, y, phi }
-const trail = [];
-const MAX_TRAIL = 200;
+let classifiedPois = []; // Array of { x, y, phi, class }
 const SCALE = 20;
 
 let currentPhase = 1;
@@ -40,16 +39,6 @@ socket.on('disconnect', () => {
 
 socket.on('status_log', (data) => addLog(data.message, data.level));
 
-socket.on('robot_pose', (data) => {
-  robotPose = data;
-  document.getElementById('pose-x').textContent = data.x.toFixed(2);
-  document.getElementById('pose-y').textContent = data.y.toFixed(2);
-  document.getElementById('pose-theta').textContent = data.theta.toFixed(2);
-  trail.push({ x: data.x, y: data.y });
-  if (trail.length > MAX_TRAIL) trail.shift();
-  drawMinimap();
-});
-
 socket.on('state_sync', (data) => {
   currentPhase = data.phase;
   isPaused = data.paused;
@@ -79,6 +68,17 @@ socket.on('poi_update', (data) => {
     drawMinimap();
   } catch (e) {
     console.error('Failed to parse POIs:', e);
+  }
+});
+
+socket.on('classified_poi_update', (data) => {
+  try {
+    const fixed = data.classified_poi.replace(/'/g, '"');
+    classifiedPois = JSON.parse(fixed);
+    addLog(`Classified POIs updated: ${classifiedPois.length} object(s) classified`, 'info');
+    drawMinimap();
+  } catch (e) {
+    console.error('Failed to parse classified POIs:', e);
   }
 });
 
@@ -168,8 +168,6 @@ function renderWaypoints() {
     selEl.appendChild(row);
   });
 }
-
-
 
 function moveItem(idx, dir) {
   const newIdx = idx + dir;
@@ -288,6 +286,30 @@ function drawMinimap() {
         ctx.font = 'bold 10px monospace';
         ctx.textAlign = 'left';
         ctx.fillText(`P${idx + 1}`, ppx + 10, ppy + 4);
+      });
+    }
+
+    if (classifiedPois.length > 0) {
+      classifiedPois.forEach((poi, idx) => {
+        const pCellX = (poi.x - origin_x) / resolution;
+        const pCellY = (poi.y - origin_y) / resolution;
+        const ppx = (pCellX / cw) * w;
+        const ppy = h - (pCellY / ch) * h;
+
+        // green tirangle 
+        ctx.fillStyle = '#83ff83';
+        ctx.beginPath();
+        ctx.moveTo(ppx, ppy - 6); // Top point of triangle
+        ctx.lineTo(ppx - 5, ppy + 4); // Bottom left
+        ctx.lineTo(ppx + 5, ppy + 4); // Bottom right
+        ctx.closePath();
+        ctx.fill();
+
+        // Label
+        ctx.fillStyle = '#83ff83';
+        ctx.font = 'bold 10px monospace';
+        ctx.textAlign = 'left';
+        ctx.fillText(`${poi.label}`, ppx + 10, ppy + 4);
       });
     }
 
