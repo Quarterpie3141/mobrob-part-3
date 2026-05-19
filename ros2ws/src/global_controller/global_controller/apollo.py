@@ -30,7 +30,7 @@ HARDCODED_WAYPOINTS: List[Tuple[float, float, float]] = [
 EXPLORE_WAYPOINTS: List[Tuple[float, float, float]] = [
 ]
 
-Explore_Waypoints: List[float] = []
+EXPLORE_WAYPOINTS_FLAG: List[bool] = []
 
 CLASSIFIED_WAYPOINTS: List[Tuple[float, float, float, str]] = [
 ]
@@ -69,6 +69,7 @@ class GlobalControllerNode(Node):
         #waypoints
         self._waypoints = list(HARDCODED_WAYPOINTS)
         self._explore_way = list(EXPLORE_WAYPOINTS)
+        self._explore_way_flag = list(EXPLORE_WAYPOINTS_FLAG)
         self._state = ControllerState.WAITING
         self._current_waypoint_index = 0
         self._current_explore_index = 1
@@ -139,7 +140,7 @@ class GlobalControllerNode(Node):
 
 
 
-            if self._current_waypoint_index < len(self._waypoints):
+            if self._current_waypoint_index < (len(self._waypoints)-1):
                 self.get_logger().info(" EXPLORE POI:"+str(self._explore_way[self._current_explore_index]))
                 self.get_logger().info(" EXPLORE POI:"+str(self._explore_way[self._current_explore_index]))
                 self.get_logger().info(" EXPLORE POI:"+str(self._explore_way[self._current_explore_index]))
@@ -147,8 +148,9 @@ class GlobalControllerNode(Node):
                 self.get_logger().info(" EXPLORE POI:"+str(self._explore_way[self._current_explore_index]))
                 self.get_logger().info(" EXPLORE POI:"+str(self._explore_way[self._current_explore_index]))
                 self.get_logger().info(" EXPLORE POI:"+str(self._explore_way[self._current_explore_index]))
-                self._send_nav2_goal()
                 self._current_explore_index += 1
+                self._send_nav2_goal()
+
 
 
     def _handle_slave_status(self, msg: String) -> None:
@@ -260,9 +262,11 @@ class GlobalControllerNode(Node):
                             interm_y = (self._waypoints[-1][1] + self._explore_way[self._current_explore_index][1]) / 2
                             interm_phi =  self._waypoints[-1][2]  # Just keep the same orientation for the intermediate point
                             self._waypoints.append((interm_x, interm_y, interm_phi))
+                            self._explore_way_flag[self._current_explore_index] = False
                             self.get_logger().info(f'Added intermediate waypoint at X={interm_x}, Y={interm_y}, Phi={interm_phi} to bridge gap to explore point.')
 
                         self._waypoints.append(self._explore_way[self._current_explore_index])
+                        self._explore_way_flag[self._current_explore_index] = True
                         self.get_logger().info("SENDING EXPLORE POI:"+str(self._explore_way[self._current_explore_index]))
                         self.get_logger().info("SENDING EXPLORE POI:"+str(self._explore_way[self._current_explore_index]))
                         self.get_logger().info("SENDING EXPLORE POI:"+str(self._explore_way[self._current_explore_index]))
@@ -274,12 +278,12 @@ class GlobalControllerNode(Node):
                         
                         
                         if self._current_explore_index == 1:
-                            self._current_explore_index += 1
+                            # self._current_explore_index += 1
                             self._send_nav2_goal()
 
                         #self._current_waypoint_index += 1
 
-                        if self._current_explore_index != 1:
+                        if self._current_explore_index != 1 and self._explore_way_flag[self._current_explore_index] == True:
                             #cv detection drive stuff
                             #TAKE PHOTO HERE
                             #classified waypoints
