@@ -2,6 +2,8 @@ from enum import Enum
 import string
 from typing import List, Optional, Tuple
 import math
+import time
+import os
 import rclpy
 from rclpy.node import Node
 from sensor_msgs.msg import NavSatFix
@@ -258,6 +260,7 @@ class GlobalControllerNode(Node):
                     #self._transition_to(ControllerState.STOPPED)
                     #call stuff here
                     if self._current_explore_index ==1:
+                        self._save_costmap_to_disk()
                         self.isolate_objects()
 
                     if self._current_explore_index < len(self._explore_way):
@@ -385,7 +388,47 @@ class GlobalControllerNode(Node):
 
         if self.phase == 'phase_2':
             self.get_logger().info('Phase 2 detected. Starting object isolation.')
+            self._save_costmap_to_disk()
             self.isolate_objects()
+
+    def _save_costmap_to_disk(self) -> None:
+        if self.costmap_data is None:
+            self.get_logger().warn('No costmap data available to save.')
+            return
+
+        costmap = self.costmap_data
+        save_dir = os.path.expanduser('~/costmap_exports')
+        os.makedirs(save_dir, exist_ok=True)
+        stamp = int(time.time())
+        img_path  = os.path.join(save_dir, f'costmap_{stamp}.png')
+        yaml_path = os.path.join(save_dir, f'costmap_{stamp}.yaml')
+
+        # Build grayscale image in map_saver style:
+        #   free (0) → 254 (white), occupied (100) → 0 (black), unknown (-1) → 205 (grey)
+        grid = np.array(costmap.data, dtype=np.int8).reshape(
+            costmap.info.height, costmap.info.width
+        )
+        img = np.full((costmap.info.height, costmap.info.width), 205, dtype=np.uint8)
+        img[grid == 0]   = 254
+        img[grid == 100] = 0
+        # Flip vertically: ROS grid has y=0 at bottom, PNG has y=0 at top
+        img = cv2.flip(img, 0)
+        cv2.imwrite(img_path, img)
+
+        ox  = costmap.info.origin.position.x
+        oy  = costmap.info.origin.position.y
+        res = costmap.info.resolution
+        with open(yaml_path, 'w') as f:
+            f.write(
+                f"image: {img_path}\n"
+                f"resolution: {res}\n"
+                f"origin: [{ox}, {oy}, 0.0]\n"
+                f"negate: 0\n"
+                f"occupied_thresh: 0.65\n"
+                f"free_thresh: 0.196\n"
+            )
+
+        self.get_logger().info(f'Costmap exported → {img_path}  |  {yaml_path}')
 
     def isolate_objects(self):
         self.get_logger().info('Isolating objects from costmap...')

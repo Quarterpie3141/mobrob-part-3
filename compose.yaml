@@ -46,10 +46,11 @@ services:
     network_mode: host
     stdin_open: true
     tty: true
-    privileged: true 
+    privileged: true
     restart: unless-stopped
     volumes:
       - /dev:/dev
+      - costmap_exports:/root/costmap_exports
 
   mobrob_ekf2:
     build:
@@ -138,3 +139,6 @@ services:
     privileged: true
     volumes:
       - /dev:/dev
+
+volumes:
+  costmap_exports:
