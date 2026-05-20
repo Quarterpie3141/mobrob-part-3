@@ -28,7 +28,7 @@ class DepthAICameraNode(Node):
         self.trigger_sub = self.create_subscription(String, '/check_object', self.trigger_callback, 10)
         self.cam_sub = self.create_subscription(Image, 'camera/raw_image', self.cam_sub_callback, 10)
         self.scan_complete_pub = self.create_publisher(Bool, '/scan_complete', 10)
-        self.timer = self.create_timer(0.1, self.timer_callback)
+        #self.timer = self.create_timer(0.1, self.timer_callback)
 
         self.master_status = None
         self.taking_picture = False

@@ -278,24 +278,53 @@ class GlobalControllerNode(Node):
     
     def _get_result_callback(self, future):
             status = future.result().status
+            self.get_logger().info(
+                '[RESULT] status=%s phase=%s wp_idx=%d/%d explore_idx=%d/%d route_idx=%d/%d' % (
+                    str(status),
+                    str(self.phase),
+                    self._current_waypoint_index,
+                    len(self._waypoints),
+                    self._current_explore_index,
+                    len(self._explore_way),
+                    self._current_route_index,
+                    len(self._waypoint_route),
+                )
+            )
+
             if status == GoalStatus.STATUS_SUCCEEDED:
                 self.get_logger().info('Goal succeeded! Moving to next waypoint.')
                 if self.phase == 'phase_1':
+                    self.get_logger().info('[RESULT][PHASE_1] Entered phase_1 success branch.')
                     self._current_waypoint_index += 1
+                    self.get_logger().info(
+                        f'[RESULT][PHASE_1] Incremented waypoint index to {self._current_waypoint_index} (total={len(self._waypoints)}).'
+                    )
                     if self._current_waypoint_index < len(self._waypoints):
+                        self.get_logger().info(
+                            f'[RESULT][PHASE_1] More base waypoints remain. Sending next waypoint index {self._current_waypoint_index}.'
+                        )
                         self._publish_status_log(
                                 "Exploring enviroment and building map..."
                         )
                         self._send_nav2_goal()
                     else:
                         self.get_logger().info('Mapping Initial Complete!')
+                        self.get_logger().info(
+                            '[RESULT][PHASE_1] Finished hardcoded waypoints. Transitioning to explore/POI flow.'
+                        )
                         #self._transition_to(ControllerState.STOPPED)
                         #call stuff here
-                        if self._current_explore_index ==1:
+                        if self._current_explore_index == 1:
+                            self.get_logger().info(
+                                '[RESULT][PHASE_1] First explore pass: saving costmap and isolating objects.'
+                            )
                             self._save_costmap_to_disk()
                             self.isolate_objects()
 
                         if self._current_explore_index < len(self._explore_way):
+                            self.get_logger().info(
+                                f'[RESULT][PHASE_1] Explore index {self._current_explore_index} is in range. Preparing POI navigation.'
+                            )
                             dist_btw_points = math.sqrt((self._explore_way[self._current_explore_index][0] - self._waypoints[-1][0])**2 + (self._explore_way[self._current_explore_index][1] - self._waypoints[-1][1])**2)
                             self.get_logger().info(f'Distance from last waypoint to next explore point: {dist_btw_points} meters')
                             if dist_btw_points > 4.0:
@@ -308,17 +337,28 @@ class GlobalControllerNode(Node):
                                 self._waypoints.append((interm_x, interm_y, interm_phi))
                                 self._explore_way_flag.append(False) # intermediate point flag is false
                                 self.get_logger().info(f'Added intermediate waypoint at X={interm_x}, Y={interm_y}, Phi={interm_phi} to bridge gap to explore point.')
+                                self.get_logger().info(
+                                    f'[RESULT][PHASE_1] Intermediate waypoint appended at index {len(self._waypoints)-1}. '
+                                    f'Waypoints now: {len(self._waypoints)}.'
+                                )
                                 self._publish_status_log(
                                 "Going to intermediate waypoint: I" + str(len(self._waypoints)-1) + " on the way to POI P" + str(self._current_explore_index)
                                 )
 
                             self._waypoints.append(self._explore_way[self._current_explore_index])
                             self._explore_way_flag.append(True)
+                            self.get_logger().info(
+                                f'[RESULT][PHASE_1] Explore waypoint appended (explore_idx={self._current_explore_index}). '
+                                f'Waypoints now: {len(self._waypoints)}; explore flags: {len(self._explore_way_flag)}.'
+                            )
                             self._publish_status_log(
                                 "Going to POI P" + str(self._current_explore_index)
                             )
 
                             if self._current_explore_index != 1 and self._explore_way_flag[self._current_explore_index] == True:
+                                self.get_logger().info(
+                                    f'[RESULT][PHASE_1] Triggering object classification for explore index {self._current_explore_index}.'
+                                )
                                 #cv detection drive stuff
                                 #TAKE PHOTO HERE
                                 #classified waypoints
@@ -329,18 +369,44 @@ class GlobalControllerNode(Node):
 
                             
                             if self._current_explore_index == 1:
+                                self.get_logger().info(
+                                    '[RESULT][PHASE_1] Explore index is 1. Sending nav goal immediately and incrementing explore index.'
+                                )
                                 self._send_nav2_goal()
                                 self._current_explore_index += 1
+                                self.get_logger().info(
+                                    f'[RESULT][PHASE_1] Explore index incremented to {self._current_explore_index}.'
+                                )
+                        else:
+                            self.get_logger().warn(
+                                f'[RESULT][PHASE_1] Explore index {self._current_explore_index} out of range (len={len(self._explore_way)}). '
+                                'No explore goal dispatched.'
+                            )
                 else:
                     if self.phase == 'phase_2':
+                        self.get_logger().info('[RESULT][PHASE_2] Entered phase_2 success branch.')
                     
                         if self._current_route_index < len(self._waypoint_route):
+                            self.get_logger().info(
+                                f'[RESULT][PHASE_2] Appending route point index {self._current_route_index} of {len(self._waypoint_route)} and sending goal.'
+                            )
                             self._publish_status_log(
                                 f"Driving to next waypoint in route...{self.waypoint_route[self._current_route_index]}"
                             )
                             self._waypoints.append(self._waypoint_route[self._current_route_index])
                             self._send_nav2_goal()
                             self._current_route_index += 1
+                            self.get_logger().info(
+                                f'[RESULT][PHASE_2] Route index incremented to {self._current_route_index}.'
+                            )
+                        else:
+                            self.get_logger().warn(
+                                f'[RESULT][PHASE_2] No remaining route points (route_idx={self._current_route_index}, len={len(self._waypoint_route)}).'
+                            )
+                    else:
+                        self.get_logger().warn(
+                            f'[RESULT] Goal succeeded but phase is unexpected: {self.phase}. No success branch executed.'
+                        )
 
             elif status == GoalStatus.STATUS_ABORTED: 
                 self.get_logger().warn('Nav2 Aborted (Status 6). Likely a CPU/Timeout spike. Retrying...')
@@ -349,7 +415,9 @@ class GlobalControllerNode(Node):
                 self.retry_timer = self.create_timer(2.0, self._handle_oneshot_retry)                
             else:
                 # For other failures (Canceled, etc.), now we can halt
-                self.get_logger().info(f'waiting for classification')
+                self.get_logger().info(
+                    f'[RESULT] Non-success status={status}. Current phase={self.phase}. Waiting for classification or retry trigger.'
+                )
 
 
     def _handle_start_waypoint_route(self, msg: String):
@@ -364,12 +432,14 @@ class GlobalControllerNode(Node):
 
     def _handle_oneshot_retry(self):
         self.retry_timer.cancel()  # Kill it immediately so it only runs once
+        self._current_waypoint_index -= 1 
         self._retry_current_waypoint()
     
     def _retry_current_waypoint(self):
         """Helper to resend the goal without resetting the mission."""
         self.get_logger().info(f'Retrying waypoint {self._current_waypoint_index + 1}...')
         self._send_nav2_goal()
+        self._current_waypoint_index += 1
 
     def _cancel_current_nav_goal(self) -> None:
         if self._goal_handle is not None:
