@@ -136,13 +136,9 @@ class GlobalControllerNode(Node):
                 f"Classified object as {msg.detections[0].results[0].hypothesis.class_id}."
             )
             if msg.detections[0].results[0].hypothesis.class_id == 'red trashcan' or msg.detections[0].results[0].hypothesis.class_id == 'yellow trashcan':
-                self._current_explore_index += 1
                 self.start_letter_detection_pub.publish(String(data="classify"))
                 self.get_logger().info('Trashcan detected: Starting letter classification')
                 self._publish_status_log(f"Classified object as {msg.detections[0].results[0].hypothesis.class_id} Starting Letter Classification.")
-                self._send_nav2_goal()
-
-                #COME BACK HERE 
             else:
                 self._current_explore_index += 1
                 self.get_logger().info(f"Classified object as {msg.detections[0].results[0].hypothesis.class_id}. Moving to next explore point.")
@@ -414,7 +410,6 @@ class GlobalControllerNode(Node):
                     f'[RESULT] Non-success status={status}. Current phase={self.phase}. Waiting for classification or retry trigger.'
                 )
 
-
     def _handle_start_waypoint_route(self, msg: String):
         self._waypoint_route = json.loads(msg.data)
         self.get_logger().info(f'Received new waypoint route with {len(self._waypoint_route)} points.')
@@ -431,6 +426,7 @@ class GlobalControllerNode(Node):
         """Helper to resend the goal without resetting the mission."""
         self.get_logger().info(f'Retrying waypoint {self._current_waypoint_index + 1}...')
         self._send_nav2_goal()
+    
     def _cancel_current_nav_goal(self) -> None:
         if self._goal_handle is not None:
             self.get_logger().info('Canceling current Nav2 goal execution.')
