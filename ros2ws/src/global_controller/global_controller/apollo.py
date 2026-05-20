@@ -331,16 +331,16 @@ class GlobalControllerNode(Node):
                             if self._current_explore_index == 1:
                                 self._send_nav2_goal()
                                 self._current_explore_index += 1
-            else:
-                if self.phase == 'phase_2':
-                
-                    if self._current_route_index < len(self._waypoint_route):
-                        self._publish_status_log(
-                            f"Driving to next waypoint in route...{self.waypoint_route[self._current_route_index]}"
-                        )
-                        self._waypoints.append(self._waypoint_route[self._current_route_index])
-                        self._send_nav2_goal()
-                        self._current_route_index += 1
+                else:
+                    if self.phase == 'phase_2':
+                    
+                        if self._current_route_index < len(self._waypoint_route):
+                            self._publish_status_log(
+                                f"Driving to next waypoint in route...{self.waypoint_route[self._current_route_index]}"
+                            )
+                            self._waypoints.append(self._waypoint_route[self._current_route_index])
+                            self._send_nav2_goal()
+                            self._current_route_index += 1
 
             elif status == GoalStatus.STATUS_ABORTED: 
                 self.get_logger().warn('Nav2 Aborted (Status 6). Likely a CPU/Timeout spike. Retrying...')
@@ -486,7 +486,7 @@ class GlobalControllerNode(Node):
 
 
 
-        _, binary_before = cv2.threshold(occupied, 250, 255, cv2.THRESH_BINARY)
+        _, binary_before = cv2.threshold(img, 250, 255, cv2.THRESH_BINARY)
 
          # Remove isolated single pixels before dilation
         num_labels_clean, labels_clean, stats_clean, _ = cv2.connectedComponentsWithStats(binary_before, connectivity=8)
