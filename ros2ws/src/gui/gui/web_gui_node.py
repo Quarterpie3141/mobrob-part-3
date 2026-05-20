@@ -28,6 +28,23 @@ app = Flask(__name__,
 app.config['SECRET_KEY'] = 'tuna'
 socketio = SocketIO(app, cors_allowed_origins="*", async_mode='threading')
 
+def euler_from_quaternion(q):
+    x, y, z, w = q
+    sinr_cosp = 2 * (w * x + y * z)
+    cosr_cosp = 1 - 2 * (x * x + y * y)
+    roll = math.atan2(sinr_cosp, cosr_cosp)
+
+    sinp = 2 * (w * y - z * x)
+    if abs(sinp) >= 1:
+        pitch = math.copysign(math.pi / 2, sinp)
+    else:
+        pitch = math.asin(sinp)
+
+    siny_cosp = 2 * (w * z + x * y)
+    cosy_cosp = 1 - 2 * (y * y + z * z)
+    yaw = math.atan2(siny_cosp, cosy_cosp)
+
+    return roll, pitch, yaw
 
 
 class WebGuiNode(Node):
@@ -172,7 +189,7 @@ class WebGuiNode(Node):
     def baselink_callback(self, msg):
 
         orientation_list = [msg.pose.pose.orientation.x, msg.pose.pose.orientation.y, msg.pose.pose.orientation.z, msg.pose.pose.orientation.w]
-        _, _, yaw = self.euler_from_quaternion(orientation_list)
+        _, _, yaw = euler_from_quaternion(orientation_list)
         self.current_pose = {
             'x': msg.pose.pose.position.x,
             'y': msg.pose.pose.position.y,
@@ -251,30 +268,6 @@ class WebGuiNode(Node):
             pass
 
         self.log_to_web(message, level)
-
-
-    def euler_from_quaternion(q):
-        """q = [x, y, z, w] -> (roll, pitch, yaw)"""
-        x, y, z, w = q
-
-        # roll (x-axis rotation)
-        sinr_cosp = 2 * (w * x + y * z)
-        cosr_cosp = 1 - 2 * (x * x + y * y)
-        roll = math.atan2(sinr_cosp, cosr_cosp)
-
-        # pitch (y-axis rotation)
-        sinp = 2 * (w * y - z * x)
-        if abs(sinp) >= 1:
-            pitch = math.copysign(math.pi / 2, sinp)
-        else:
-            pitch = math.asin(sinp)
-
-        # yaw (z-axis rotation)
-        siny_cosp = 2 * (w * z + x * y)
-        cosy_cosp = 1 - 2 * (y * y + z * z)
-        yaw = math.atan2(siny_cosp, cosy_cosp)
-
-        return roll, pitch, yaw
 
     def set_phase(self, phase):
         if phase not in (1, 2):
