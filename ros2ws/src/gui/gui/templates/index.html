@@ -67,6 +67,15 @@
     </div>
   </footer>
 
+  <div id="poi-modal" class="hidden">
+    <div class="modal-content">
+      <button id="modal-close">✕</button>
+      <h3 id="modal-label"></h3>
+      <img id="modal-image" />
+      <p id="modal-coords"></p>
+    </div>
+  </div>
+
   <script src="{{ url_for('static', filename='script.js') }}"></script>
 </body>
 </html>

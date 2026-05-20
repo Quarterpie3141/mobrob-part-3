@@ -2,6 +2,8 @@
 import rclpy
 from rclpy.node import Node
 from geometry_msgs.msg import PoseWithCovarianceStamped
+from sensor_msgs.msg import Image
+from vision_msgs.msg import Detection2DArray
 from tf_transformations import euler_from_quaternion
 from std_msgs.msg import Bool, String
 from flask import Flask, render_template
@@ -11,6 +13,10 @@ from flask_socketio import SocketIO
 import threading
 import os
 import json
+import base64
+from cv_bridge import CvBridge
+import cv2
+
 
 from ament_index_python.packages import get_package_share_directory
 
@@ -27,6 +33,7 @@ socketio = SocketIO(app, cors_allowed_origins="*", async_mode='threading')
 class WebGuiNode(Node):
     def __init__(self):
         super().__init__('web_gui_node')
+        self.bridge = CvBridge()
 
         # Publishers
         self.pause_pub = self.create_publisher(Bool, '/pause', 10)
@@ -69,12 +76,31 @@ class WebGuiNode(Node):
             10
         )
 
+        #these are the images for letter and object det
+        self.letter_detection_image = self.create_subscription(Image, 'classified_poi/image', self.letter_detection_image_callback, 10)
+        
+        self.detections_sub = self.create_subscription(
+            Detection2DArray, '/camera/detections',
+            self.detections_callback, 10)
+
+        self.object_detection_image_sub = self.create_subscription(
+            Image, '/camera/detections/image',
+            self.object_detection_image_callback, 10)
+
+        
+
         # State
         self.current_phase = 1
         self.is_paused = False
         self.waypoint_sequence = []
         self.costmap_counter = 0
         self.last_costmap_meta = None
+        self.poi_images = {}  # label -> base64 jpeg string
+        self.last_classified_labels = []  # track what we've seen
+        self.object_pois = {}        # label -> {x, y, phi, label}
+        self.object_images = {}      # label -> b64 jpeg
+        self.last_object_labels = []
+        self.current_pose = {'x': 0.0, 'y': 0.0, 'theta': 0.0}
 
         # All available Greek-letter waypoints
         self.waypoints = [
@@ -85,18 +111,79 @@ class WebGuiNode(Node):
         self.get_logger().info('Web GUI Node started')
         self.log_to_web('ROS 2 Web GUI Node initialized', 'info')
 
+    def letter_detection_image_callback(self, msg):
+        try:
+            cv_img = self.bridge.imgmsg_to_cv2(msg, desired_encoding='bgr8')
+            ok, buf = cv2.imencode('.jpg', cv_img, [cv2.IMWRITE_JPEG_QUALITY, 80])
+            if not ok:
+                return
+            b64 = base64.b64encode(buf.tobytes()).decode('ascii')
 
+            # associate with most recent image and labels
+            if self.last_classified_labels:
+                label = self.last_classified_labels[-1]
+                self.poi_images[label] = b64
+                socketio.emit('poi_image', {'label': label, 'image': b64})
+        except Exception as e:
+            self.get_logger().error(f'Image conversion failed: {e}')
+
+    def detections_callback(self, msg):
+        if not msg.detections:
+            return
+
+        new_labels = []
+        for det in msg.detections:
+            if not det.results:
+                continue
+            label = det.results[0].hypothesis.class_id
+            new_labels.append(label)
+
+            # Only add if we haven't seen this label yet
+            # (otherwise replace with latest pose - your call)
+            if label not in self.object_pois:
+                self.object_pois[label] = {
+                    'x': self.current_pose['x'],
+                    'y': self.current_pose['y'],
+                    'phi': self.current_pose['theta'],
+                    'label': label,
+                }
+
+        self.last_object_labels = new_labels
+
+        socketio.emit('object_poi_update', {
+            'object_poi': json.dumps(list(self.object_pois.values()))
+        })
+    
+    def object_detection_image_callback(self, msg):
+        try:
+            cv_img = self.bridge.imgmsg_to_cv2(msg, desired_encoding='bgr8')
+            ok, buf = cv2.imencode('.jpg', cv_img, [cv2.IMWRITE_JPEG_QUALITY, 80])
+            if not ok:
+                return
+            b64 = base64.b64encode(buf.tobytes()).decode('ascii')
+
+            if self.last_object_labels:
+                label = self.last_object_labels[-1]
+                self.object_images[label] = b64
+                socketio.emit('object_image', {'label': label, 'image': b64})
+        except Exception as e:
+            self.get_logger().error(f'Object image conversion failed: {e}')
+    
     def baselink_callback(self, msg):
 
         orientation_list = [msg.pose.pose.orientation.x, msg.pose.pose.orientation.y, msg.pose.pose.orientation.z, msg.pose.pose.orientation.w]
         _, _, yaw = euler_from_quaternion(orientation_list)
+        self.current_pose = {
+            'x': msg.pose.pose.position.x,
+            'y': msg.pose.pose.position.y,
+            'theta': yaw,
+        }
 
         socketio.emit('robot_pose', {
             'x': msg.pose.pose.position.x,
             'y': msg.pose.pose.position.y,
             'theta': yaw
         })
-
 
     def costmap_callback(self, msg):
       # Throttling 
@@ -127,6 +214,17 @@ class WebGuiNode(Node):
 
     def classified_poi_callback(self, msg):
         socketio.emit('classified_poi_update', {'classified_poi': msg.data})
+        # Track labels so we can pair the next incoming image
+        try:
+            fixed = msg.data.replace("'", '"')
+            pois = json.loads(fixed)
+            self.last_classified_labels = [p['label'] for p in pois]
+        except Exception as e:
+            self.get_logger().error(f'Failed to parse classified POIs: {e}')
+
+    def object_detection_image_callback(self, msg):
+        # Optional: stream live detection feed separately
+        pass
 
     def nav2_goal_callback(self, msg):
         # msg.data is a string of the format "x,y,phi"
@@ -174,8 +272,7 @@ class WebGuiNode(Node):
         self.log_to_web(f'Robot {state}', level)
         return self.is_paused
 
-    def send_waypoint_sequence(self, sequence):
-        # Validate
+    def send_waypoint_sequence(self, sequence, coordinates=None):
         invalid = [w for w in sequence if w not in self.waypoints]
         if invalid:
             self.log_to_web(f'Invalid waypoints: {invalid}', 'error')
@@ -183,14 +280,19 @@ class WebGuiNode(Node):
         if not sequence:
             self.log_to_web('Waypoint sequence is empty', 'warning')
             return False
+        if not coordinates or len(coordinates) != len(sequence):
+            self.log_to_web('Missing or mismatched coordinates for waypoints', 'error')
+            return False
 
         self.waypoint_sequence = sequence
         msg = String()
-        msg.data = json.dumps(sequence)
+        # Format: '[[1.0, 2.0, 0.5], [3.0, 4.0, 1.2]]'
+        msg.data = json.dumps(coordinates)
         self.waypoint_order_pub.publish(msg)
         self.log_to_web(
             f'Sent waypoint sequence ({len(sequence)}): {" → ".join(sequence)}',
             'success')
+        self.get_logger().info(f'Published coordinates: {msg.data}')
         return True
 
     def clear_waypoints(self):
@@ -217,13 +319,20 @@ def index():
 @socketio.on('connect')
 def handle_connect():
     if ros_node:
-        # Send the current state to the new client
         socketio.emit('state_sync', {
             'phase': ros_node.current_phase,
             'paused': ros_node.is_paused,
             'waypoints': ros_node.waypoints,
             'sequence': ros_node.waypoint_sequence,
         })
+        for label, b64 in ros_node.poi_images.items():
+            socketio.emit('poi_image', {'label': label, 'image': b64})
+        for label, b64 in ros_node.object_images.items():
+            socketio.emit('object_image', {'label': label, 'image': b64})
+        if ros_node.object_pois:
+            socketio.emit('object_poi_update', {
+                'object_poi': json.dumps(list(ros_node.object_pois.values()))
+            })
         ros_node.log_to_web('Web client connected', 'info')
 
 
@@ -244,7 +353,8 @@ def handle_toggle_pause():
 def handle_send_waypoints(data):
     if ros_node:
         sequence = data.get('sequence', [])
-        ros_node.send_waypoint_sequence(sequence)
+        coordinates = data.get('coordinates', [])
+        ros_node.send_waypoint_sequence(sequence, coordinates)
 
 
 @socketio.on('clear_waypoints')
