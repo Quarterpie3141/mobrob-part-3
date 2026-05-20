@@ -25,6 +25,7 @@ setup(
     entry_points={
         'console_scripts': [
             'apollo = global_controller.apollo:main',
+            'estop = global_controller.estop:main',
         ],
     },
 )
