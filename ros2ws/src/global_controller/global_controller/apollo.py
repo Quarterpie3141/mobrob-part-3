@@ -463,7 +463,7 @@ class GlobalControllerNode(Node):
 
 
 
-        _, binary_before = cv2.threshold(occupied, 250, 255, cv2.THRESH_BINARY)
+        _, binary_before = cv2.threshold(img, 250, 255, cv2.THRESH_BINARY)
 
          # Remove isolated single pixels before dilation
         num_labels_clean, labels_clean, stats_clean, _ = cv2.connectedComponentsWithStats(binary_before, connectivity=8)

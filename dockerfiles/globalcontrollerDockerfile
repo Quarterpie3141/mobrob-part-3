@@ -20,6 +20,9 @@ RUN pip3 install --break-system-packages numpy
 
 RUN apt-get install ros-jazzy-ros-base ros-jazzy-rmw-cyclonedds-cpp python3-colcon-common-extensions -y
 
+RUN apt install ros-jazzy-cv-bridge -y
+RUN apt install ros-jazzy-vision-msgs -y
+
 RUN rm -rf /var/lib/apt/lists/* /tmp/ros2-apt-source.deb
 
 RUN echo "source /opt/ros/jazzy/setup.bash" >> ~/.bashrc
@@ -49,6 +52,7 @@ WORKDIR /opt/ros2ws
 
 # 2. Copy the specific package source code from your computer into the container
 COPY ros2ws/src/global_controller ./src/global_controller
+
 
 # 3. Build the package during the Docker image creation
 RUN /bin/bash -c "source /opt/ros/jazzy/setup.bash && colcon build --packages-select global_controller"

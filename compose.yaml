@@ -1,5 +1,5 @@
 services:
-  mobrob_cv:
+  mobrob_cv1:
     build:
       context: .
       dockerfile: dockerfiles/CVDockerfile
@@ -12,21 +12,21 @@ services:
       - /dev:/dev
       - /home/team8/Documents:/opt/ros2ws/img
 
-  mobrob_sens:
-    build:
-      context: .
-      dockerfile: dockerfiles/sensDockerfile
-    pull_policy: build
-    logging:
-      driver: "none"
-    network_mode: host
-    stdin_open: true
-    tty: true
-    privileged: true
-    volumes:
-      - /dev:/dev
+  # mobrob_sens:
+  #   build:
+  #     context: .
+  #     dockerfile: dockerfiles/sensDockerfile
+  #   pull_policy: build
+  #   logging:
+  #     driver: "none"
+  #   network_mode: host
+  #   stdin_open: true
+  #   tty: true
+  #   privileged: true
+  #   volumes:
+  #     - /dev:/dev
 
-  mobrob_aria:
+  mobrob_aria1:
     build:
       context: .
       dockerfile: dockerfiles/ariaDockerfile
@@ -40,7 +40,7 @@ services:
     volumes:
       - /dev:/dev
 
-  mobrob_ctrl:
+  mobrob_ctrl1:
     build:
       context: .
       dockerfile: dockerfiles/ctrlDockerfile
@@ -52,7 +52,7 @@ services:
     volumes:
       - /dev:/dev
 
-  mobrob_basic_drive:
+  mobrob_basic_drive1:
     build:
       context: .
       dockerfile: dockerfiles/basicdriveDockerfile
@@ -64,7 +64,7 @@ services:
     volumes:
       - /dev:/dev
 
-  mobrob_global_controller:
+  mobrob_global_controller1:
     build:
       context: .
       dockerfile: dockerfiles/globalcontrollerDockerfile
@@ -76,9 +76,9 @@ services:
     restart: unless-stopped
     volumes:
       - /dev:/dev
-      - costmap_exports:/root/costmap_exports
+      - /home/team8/Documents:/root/costmap_exports
 
-  mobrob_ekf:
+  mobrob_ekf1:
     build:
       context: .
       dockerfile: dockerfiles/Sensors/EKFDockerfile
@@ -90,7 +90,7 @@ services:
     volumes:
       - /dev:/dev
 
-  mobrob_imu:
+  mobrob_imu1:
     build:
       context: .
       dockerfile: dockerfiles/Sensors/IMUDockerfile
@@ -102,7 +102,7 @@ services:
     volumes:
       - /dev:/dev
 
-  mobrob_sick:
+  mobrob_sick1:
     build:
       context: .
       dockerfile: dockerfiles/Sensors/SICKScanDockerfile
@@ -114,7 +114,7 @@ services:
     volumes:
       - /dev:/dev
 
-  mobrob_nav3:
+  mobrob_nav4:
     build:
       context: .
       dockerfile: dockerfiles/nav2Dockerfile
@@ -126,7 +126,7 @@ services:
     volumes:
       - /dev:/dev
    
-  mobrob_image_publisher:
+  mobrob_image_publisher1:
    build:
      context: .
      dockerfile: dockerfiles/image_publisherDockerfile
@@ -141,7 +141,7 @@ services:
    device_cgroup_rules:
      - 'c 189:* rmw'
   
-  mobrob_greek:
+  mobrob_greek1:
     build:
       context: .
       dockerfile: dockerfiles/greekDockerfile
@@ -153,7 +153,7 @@ services:
     volumes:
       - /dev:/dev
 
-  mobrob_gui:
+  mobrob_gui1:
     build:
       context: .
       dockerfile: dockerfiles/guiDockerfile
@@ -165,7 +165,7 @@ services:
     volumes:
       - /dev:/dev
 
-  mobrob_compvis:
+  mobrob_compvis1:
     build:
       context: .
       dockerfile: dockerfiles/CompVisDockerfile

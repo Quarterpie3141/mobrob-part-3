@@ -26,7 +26,7 @@ SHELL ["/bin/bash", "-c"]
 RUN echo "source /opt/ros/jazzy/setup.bash" >> ~/.bashrc
 
 # build essentials & ROS tools
-RUN apt install git -y
+RUN apt update -y
 RUN apt install build-essential -y
 RUN apt install make g++ -y
 RUN sh -c 'echo "deb [arch=amd64,arm64] http://repo.ros2.org/ubuntu/main `lsb_release -cs` main" > /etc/apt/sources.list.d/ros2-latest.list'

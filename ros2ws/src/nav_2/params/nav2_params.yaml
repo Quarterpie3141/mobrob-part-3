@@ -124,7 +124,7 @@ local_costmap:
       height: 5
       resolution: 0.1
       robot_radius: 0.3
-      plugins: ["obstacle_layer ", "inflation_layer"]
+      plugins: ["obstacle_layer", "inflation_layer"]
       # voxel_layer:
       #   plugin: nav2_costmap_2d::VoxelLayer
       #   enabled: true
