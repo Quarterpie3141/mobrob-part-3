@@ -460,17 +460,26 @@ class GlobalControllerNode(Node):
         img[grid == 100] = 255      # occupied  → white
         img[grid == 0]   = 0        # free      → black
         img[grid == -1]  = 0        # unknown   → black (or 127 if you want it visible)
-        _, binary = cv2.threshold(img, 250, 255, cv2.THRESH_BINARY)
 
-                
-        kernel = np.ones((3, 3), np.uint8)
-        # dilated = cv2.dilate(binary, kernel, iterations=1)
+
+
+        _, binary_before = cv2.threshold(occupied, 250, 255, cv2.THRESH_BINARY)
+
+         # Remove isolated single pixels before dilation
+        num_labels_clean, labels_clean, stats_clean, _ = cv2.connectedComponentsWithStats(binary_before, connectivity=8)
+        for i in range(1, num_labels_clean):
+            if stats_clean[i, cv2.CC_STAT_AREA] == 1:
+                binary_before[labels_clean == i] = 0
+
+        # kernel = np.ones((3, 3), np.uint8)
+        # binary_after = cv2.dilate(binary_before, kernel, iterations=1)
        
-        num_labels, labels, stats, centroids = cv2.connectedComponentsWithStats(binary)
+        num_labels, labels, stats, centroids = cv2.connectedComponentsWithStats(binary_before, connectivity=8)
 
-        #Apply minimum area
-        min_area = 5
+        object_positions = []
+        min_area = 10
         max_area = 100
+
         for i in range(1, num_labels):
             if stats[i, cv2.CC_STAT_AREA] > min_area and stats[i, cv2.CC_STAT_AREA] < max_area:
                 #find x,y coords
@@ -483,7 +492,7 @@ class GlobalControllerNode(Node):
                 cy_m = centroids[i][1] * res + costmap.info.origin.position.y
 
             
-                if abs(cx_m) < 10 and abs(cy_m) < 7 and math.sqrt(cx_m**2 + cy_m**2) < 11.0: # sanity check to filter out bad detections near the robot
+                if (cx_m < 10 and cx_m > -6) and (cy_m < 4 and cy_m > -8) and math.sqrt(cx_m**2 + cy_m**2) < 11.0:                    
                     if len(object_positions) == 0:
                         object_positions.append((cx_m, cy_m, 0.0))
                     else: 
