@@ -12,6 +12,7 @@ let classifiedPois = [];      // Array of { x, y, phi, label }  -- letters
 let objectPois = [];          // Array of { x, y, phi, label }  -- objects
 const poiImages = {};         // letter label -> base64 jpeg
 const objectImages = {};      // object label -> base64 jpeg
+let costmap = null;
 
 const SCALE = 20;
 const trail = [];
