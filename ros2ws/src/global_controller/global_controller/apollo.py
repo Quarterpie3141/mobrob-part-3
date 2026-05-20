@@ -431,7 +431,7 @@ class GlobalControllerNode(Node):
                 cy_m = centroids[i][1] * res + costmap.info.origin.position.y
 
             
-                if (cx_m < 4 and cx_m > -4) and (cy_m < 4 and cy_m > -4) and math.sqrt(cx_m**2 + cy_m**2) < 11.0:                    
+                if (cx_m < 8 and cx_m > -8) and (cy_m < 5 and cy_m > -8) and math.sqrt(cx_m**2 + cy_m**2) < 11.0:                    
                     if len(object_positions) == 0:
                         object_positions.append((cx_m, cy_m, 0.0))
                     else: 
