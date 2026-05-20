@@ -104,7 +104,7 @@ class GlobalControllerNode(Node):
 
         #phase
         self.create_subscription(String, '/phase', self._handle_phase, 10)
-        self.phase = None
+        self.phase = 'phase_1'
 
         #detect letter signal publisher
         self.start_letter_detection_pub = self.create_publisher(String, '/check_label', 10)
