@@ -1,12 +1,10 @@
-from std_msgs.msg import Empty, String, Bool
+from std_msgs.msg import String, Bool
 from geometry_msgs.msg import Twist
 from sensor_msgs.msg import Image
 from nav_msgs.msg import Odometry
 import os
 import math
-import time
 import rclpy
-from sensor_msgs.msg import NavSatFix
 from rclpy.node import Node
 from vision_msgs.msg import Detection2D, Detection2DArray, BoundingBox2D, ObjectHypothesisWithPose
 from cv_bridge import CvBridge

@@ -14,6 +14,10 @@ RUN apt-get update && apt-get install -y \
     python3-venv \
     && rm -rf /var/lib/apt/lists/*
 
+#cv_bridge
+RUN apt update && apt install ros-jazzy-cv-bridge -y
+RUN apt update && apt install ros-jazzy-vision-msgs -y
+
 RUN rm -rf /var/lib/apt/lists/* /tmp/ros2-apt-source.deb
 
 RUN echo "source /opt/ros/jazzy/setup.bash" >> ~/.bashrc
@@ -26,7 +30,7 @@ COPY ros2ws/src/gui /opt/ros2ws/src/gui
 
 SHELL ["/bin/bash", "-c"]
 
-RUN pip install flask flask-socketio eventlet flask-cors \
+RUN pip install flask flask-socketio eventlet flask-cors opencv-python \
     --break-system-packages --ignore-installed blinker
 
 RUN source /opt/ros/jazzy/setup.bash && colcon build --packages-select gui gui
