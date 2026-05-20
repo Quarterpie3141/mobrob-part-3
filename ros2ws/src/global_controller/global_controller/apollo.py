@@ -122,14 +122,17 @@ class GlobalControllerNode(Node):
             self.start_letter_detection_pub.publish(String(data="classify"))
             return
         else:
-            x = self._explore_way[self._current_explore_index][0]
-            y = self._explore_way[self._current_explore_index][1]
-            phi = self._explore_way[self._current_explore_index][2]
+            x = self._explore_way[self._current_explore_index-1][0]
+            y = self._explore_way[self._current_explore_index-1 ][1]
+            phi = self._explore_way[self._current_explore_index-1][2]
             CLASSIFIED_WAYPOINTS.append((x, y, phi, self.last_detected_letter))
 
             s = str([{'x': x, 'y': y, 'phi': phi, 'label': label} for x, y, phi, label in CLASSIFIED_WAYPOINTS])
             self.get_logger().info(f'Publishing classified poi to GUI: {s}')
             self.classified_poi_pub.publish(String(data=s))
+            self._publish_status_log(
+                "Classified " + self.last_detected_letter + " at:" + str(self._explore_way[self._current_explore_index-1])
+            )
 
 
             self.get_logger().info('IMAGE CLASSIFICATION COMPLETE. Detected letter: ' + self.last_detected_letter)
@@ -270,6 +273,9 @@ class GlobalControllerNode(Node):
                             self._waypoints.append((interm_x, interm_y, interm_phi))
                             self._explore_way_flag.append(False) # intermediate point flag is false
                             self.get_logger().info(f'Added intermediate waypoint at X={interm_x}, Y={interm_y}, Phi={interm_phi} to bridge gap to explore point.')
+                            self._publish_status_log(
+                            "Going to intermediate waypoint:" + str(self._waypoints[-1])
+                            )
 
                         self._waypoints.append(self._explore_way[self._current_explore_index])
                         self._explore_way_flag.append(True)
@@ -281,7 +287,9 @@ class GlobalControllerNode(Node):
                             #cv detection drive stuff
                             #TAKE PHOTO HERE
                             #classified waypoints
-
+                            self._publish_status_log(
+                            "Starting Classification at:" + str(self._explore_way[self._current_explore_index])
+                            )
                             self.start_letter_detection_pub.publish(String(data="classify"))
                         
                         if self._current_explore_index == 1:
