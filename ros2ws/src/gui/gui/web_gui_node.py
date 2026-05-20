@@ -44,6 +44,10 @@ class WebGuiNode(Node):
             String, '/poi', self.poi_callback, 10
         )
 
+        self.classified_poi_sub = self.create_subscription(
+            String, '/classified_poi', self.classified_poi_callback, 10
+        )
+
         self.costmap_sub = self.create_subscription(
             OccupancyGrid,
             '/map',
@@ -55,6 +59,13 @@ class WebGuiNode(Node):
             String,
             '/gui/nav2_goal',
             self.nav2_goal_callback,
+            10
+        )
+
+        self.status_log_sub = self.create_subscription(
+            String,
+            '/status_log',
+            self.status_log_callback,
             10
         )
 
@@ -112,8 +123,10 @@ class WebGuiNode(Node):
       })
 
     def poi_callback(self, msg):
-        # poi is a string of the format 
         socketio.emit('poi_update', {'poi': msg.data})
+
+    def classified_poi_callback(self, msg):
+        socketio.emit('classified_poi_update', {'classified_poi': msg.data})
 
     def nav2_goal_callback(self, msg):
         # msg.data is a string of the format "x,y,phi"
@@ -125,6 +138,21 @@ class WebGuiNode(Node):
             socketio.emit('nav2_goal', {'x': x, 'y': y, 'phi': phi})
         except Exception as e:
             self.get_logger().error(f'Failed to parse Nav2 goal: {e}')
+
+    def status_log_callback(self, msg):
+        # Supports plain text or JSON: {"message": "...", "level": "info|success|warning|error"}
+        message = msg.data
+        level = 'info'
+
+        try:
+            payload = json.loads(msg.data)
+            if isinstance(payload, dict):
+                message = str(payload.get('message', message))
+                level = str(payload.get('level', level))
+        except json.JSONDecodeError:
+            pass
+
+        self.log_to_web(message, level)
 
     def set_phase(self, phase):
         if phase not in (1, 2):

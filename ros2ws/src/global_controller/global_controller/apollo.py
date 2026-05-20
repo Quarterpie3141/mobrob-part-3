@@ -1,7 +1,9 @@
 from enum import Enum
+import string
 from typing import List, Optional, Tuple
 import math
-
+import time
+import os
 import rclpy
 from rclpy.node import Node
 from sensor_msgs.msg import NavSatFix
@@ -12,6 +14,7 @@ from rclpy.action import ActionClient
 from nav2_msgs.action import NavigateToPose 
 from action_msgs.msg import GoalStatus # Add this import at the top
 from nav_msgs.msg import OccupancyGrid
+from vision_msgs.msg import Detection2DArray
 
 
 import cv2
@@ -19,16 +22,19 @@ import numpy as np
 import math
 
 HARDCODED_WAYPOINTS: List[Tuple[float, float, float]] = [
-    (3.0, 0.0, 0.0), 
-    (6.0, 0.0, 3.141), 
-    (3.0, 0.0, 3.141), 
+    (5.0, 0.0, 3.141), 
     (0.0, 0.0, 3.141), 
-    (-2.0, 0.0, 0.0),
-    (0.0, 0.0, 0.0)
+    (-5.0, 0.0, 0.0), 
+    (0.0, 0.0, 3.141)
 ]
 
 EXPLORE_WAYPOINTS: List[Tuple[float, float, float]] = [
-    (0.0, 0.0, 0.0)
+    (0,0,0)
+]
+
+EXPLORE_WAYPOINTS_FLAG: List[bool] = [False] # parallel list to EXPLORE_WAYPOINTS to indicate if it's been sent to Nav2 yet
+
+CLASSIFIED_WAYPOINTS: List[Tuple[float, float, float, str]] = [
 ]
 
 class ControllerState(str, Enum):   
@@ -36,7 +42,7 @@ class ControllerState(str, Enum):
     DRIVING = 'driving to waypoint'
     TAKING_PICTURE = 'taking picture'
     STOPPED = 'stopped'
-
+    
 def yaw_to_quaternion(yaw: float) -> Tuple[float, float, float, float]:
     """
     Converts a yaw angle (in radians) to a fully normalized unit quaternion (x, y, z, w).
@@ -65,6 +71,7 @@ class GlobalControllerNode(Node):
         #waypoints
         self._waypoints = list(HARDCODED_WAYPOINTS)
         self._explore_way = list(EXPLORE_WAYPOINTS)
+        self._explore_way_flag = list(EXPLORE_WAYPOINTS_FLAG)
         self._state = ControllerState.WAITING
         self._current_waypoint_index = 0
         self._current_explore_index = 1
@@ -76,6 +83,7 @@ class GlobalControllerNode(Node):
         # status publish
         self._gui_nav2_goal_pub = self.create_publisher(String, '/gui/nav2_goal', 10)
         self._master_status_pub = self.create_publisher(String, '/master/status', 10)
+        self._status_log_pub = self.create_publisher(String, '/status_log', 10)
         
         self.create_subscription(String, '/slave/status', self._handle_slave_status, 10)
 
@@ -83,13 +91,25 @@ class GlobalControllerNode(Node):
         self.create_subscription(OccupancyGrid, '/map', self._handle_costmap, 10)
         self.costmap_data = None
 
-        #isolated objects pub
-        self.isolated_objects_pub = self.create_publisher(String, '/poi', 10)
+        #poi pub
+        self.poi_pub = self.create_publisher(String, '/poi', 10)
         self.objects_isolated = False
-        
+
+        #classified pub
+        self.classified_poi_pub = self.create_publisher(String, '/classified_poi', 10)
+
         #phase
         self.create_subscription(String, '/phase', self._handle_phase, 10)
         self.phase = None
+
+        #detect letter signal publisher
+        self.start_letter_detection_pub = self.create_publisher(String, '/check_label', 10)
+        self.letter_detection_sub = self.create_subscription(String, '/camera/letter_detection', self.letter_detection_callback, 10)
+        self.last_detected_letter = None
+
+        #object detection signal publisher
+        self.start_object_detection_pub = self.create_publisher(String, '/check_object', 10)
+        self.object_detection_sub = self.create_subscription(Detection2DArray, '/camera/detections', self.object_detection_callback, 10)
 
         # Nav2 Action Client
         self._nav_client = ActionClient(self, NavigateToPose, 'navigate_to_pose')
@@ -100,6 +120,59 @@ class GlobalControllerNode(Node):
         self.get_logger().info(f'Loaded {len(self._waypoints)} Nav2 waypoints.')
         self._publish_state()
         self.get_logger().info(f'Global controller started in state: {self._state.value}')
+
+    def object_detection_callback(self, msg: Detection2DArray) -> None:
+        if len(msg.detections) > 0:
+            self.get_logger().info(f'Object detection callback received {len(msg.detections)} detections.')
+            self._publish_status_log(
+                f"Classified object as {msg.detections[0].results[0].hypothesis.class_id}."
+            )
+        
+            # TO-DO call bens funciton depnding on the object classification
+            self.start_letter_detection_pub.publish(String(data="classify"))
+
+        else:
+            self.get_logger().info('Object detection callback received no detections.')
+
+    def letter_detection_callback(self, msg: String) -> None:
+        self.last_detected_letter = msg.data
+        if msg.data in ("nothing detected", "confidence too low", "no frame available"):
+            self.start_letter_detection_pub.publish(String(data="classify"))
+            return
+        else:
+            x = self._explore_way[self._current_explore_index-1][0]
+            y = self._explore_way[self._current_explore_index-1 ][1]
+            phi = self._explore_way[self._current_explore_index-1][2]
+            CLASSIFIED_WAYPOINTS.append((x, y, phi, self.last_detected_letter))
+
+            s = str([{'x': x, 'y': y, 'phi': phi, 'label': label} for x, y, phi, label in CLASSIFIED_WAYPOINTS])
+            self.get_logger().info(f'Publishing classified poi to GUI: {s}')
+            self.classified_poi_pub.publish(String(data=s))
+            self._publish_status_log(
+                "Classified " + self.last_detected_letter + " at:" + str(self._explore_way[self._current_explore_index-1])
+            )
+
+
+            self.get_logger().info('IMAGE CLASSIFICATION COMPLETE. Detected letter: ' + self.last_detected_letter)
+            self.get_logger().info('IMAGE CLASSIFICATION COMPLETE. Detected letter: ' + self.last_detected_letter)
+            self.get_logger().info('IMAGE CLASSIFICATION COMPLETE. Detected letter: ' + self.last_detected_letter)
+            self.get_logger().info('IMAGE CLASSIFICATION COMPLETE. Detected letter: ' + self.last_detected_letter)
+            self.get_logger().info('IMAGE CLASSIFICATION COMPLETE. Detected letter: ' + self.last_detected_letter)
+            self.get_logger().info('IMAGE CLASSIFICATION COMPLETE. Detected letter: ' + self.last_detected_letter)
+            self.last_detected_letter = None # reset last detected letter before next classification
+
+
+
+            if self._current_waypoint_index < (len(self._waypoints)):
+                self.get_logger().info(" EXPLORE POI:"+str(self._explore_way[self._current_explore_index]))
+                self.get_logger().info(" EXPLORE POI:"+str(self._explore_way[self._current_explore_index]))
+                self.get_logger().info(" EXPLORE POI:"+str(self._explore_way[self._current_explore_index]))
+                self.get_logger().info(" EXPLORE POI:"+str(self._explore_way[self._current_explore_index]))
+                self.get_logger().info(" EXPLORE POI:"+str(self._explore_way[self._current_explore_index]))
+                self.get_logger().info(" EXPLORE POI:"+str(self._explore_way[self._current_explore_index]))
+                self.get_logger().info(" EXPLORE POI:"+str(self._explore_way[self._current_explore_index]))
+                self._current_explore_index += 1
+                self._send_nav2_goal()
 
     def _handle_slave_status(self, msg: String) -> None:
         command = msg.data.strip().lower()
@@ -138,6 +211,12 @@ class GlobalControllerNode(Node):
     def _on_timer(self) -> None:
         self._publish_state()
         self._log_status_heartbeat()
+        self._publish_waypoints()
+
+    def _publish_waypoints(self) -> None: # publishes classified waypoints every second
+        # TO DO MOVE THIS TO BENS CLASSIFICATION SCRIPT OCE ITS READY
+        
+        pass
 
     def _send_nav2_goal(self) -> None:
         """Constructs and sends a NavigateToPose Action request to Nav2."""
@@ -185,14 +264,19 @@ class GlobalControllerNode(Node):
             
             if status == GoalStatus.STATUS_SUCCEEDED:
                 self.get_logger().info('Goal succeeded! Moving to next waypoint.')
+
                 self._current_waypoint_index += 1
                 if self._current_waypoint_index < len(self._waypoints):
+                    self._publish_status_log(
+                            "Exploring enviroment and building map..."
+                    )
                     self._send_nav2_goal()
                 else:
                     self.get_logger().info('Mapping Initial Complete!')
                     #self._transition_to(ControllerState.STOPPED)
                     #call stuff here
                     if self._current_explore_index ==1:
+                        self._save_costmap_to_disk()
                         self.isolate_objects()
 
                     if self._current_explore_index < len(self._explore_way):
@@ -202,44 +286,43 @@ class GlobalControllerNode(Node):
                             self.get_logger().warn('Next explore point is quite far from last waypoint. Consider adding intermediate waypoints for better navigation.')
                             interm_x = (self._waypoints[-1][0] + self._explore_way[self._current_explore_index][0]) / 2
                             interm_y = (self._waypoints[-1][1] + self._explore_way[self._current_explore_index][1]) / 2
-                            interm_phi =  self._waypoints[-1][2]  # Just keep the same orientation for the intermediate point
+                            delta_x = self._explore_way[self._current_explore_index][0] - self._waypoints[-1][0]
+                            delta_y = self._explore_way[self._current_explore_index][1] - self._waypoints[-1][1]
+                            interm_phi = math.atan2(delta_y, delta_x)
                             self._waypoints.append((interm_x, interm_y, interm_phi))
+                            self._explore_way_flag.append(False) # intermediate point flag is false
                             self.get_logger().info(f'Added intermediate waypoint at X={interm_x}, Y={interm_y}, Phi={interm_phi} to bridge gap to explore point.')
+                            self._publish_status_log(
+                            "Going to intermediate waypoint: I" + str(len(self._waypoints)-1) + " on the way to POI P" + str(self._current_explore_index)
+                            )
 
                         self._waypoints.append(self._explore_way[self._current_explore_index])
-                        self.get_logger().info("SENDING EXPLORE POI:"+str(self._explore_way[self._current_explore_index]))
-                        self.get_logger().info("SENDING EXPLORE POI:"+str(self._explore_way[self._current_explore_index]))
-                        self.get_logger().info("SENDING EXPLORE POI:"+str(self._explore_way[self._current_explore_index]))
-                        self.get_logger().info("SENDING EXPLORE POI:"+str(self._explore_way[self._current_explore_index]))
-                        self.get_logger().info("SENDING EXPLORE POI:"+str(self._explore_way[self._current_explore_index]))
-                        self.get_logger().info("SENDING EXPLORE POI:"+str(self._explore_way[self._current_explore_index]))
-                        self.get_logger().info("SENDING EXPLORE POI:"+str(self._explore_way[self._current_explore_index]))
+                        self._explore_way_flag.append(True)
+                        self._publish_status_log(
+                            "Going to POI P" + str(self._current_explore_index)
+                        )
 
-                        #self._current_waypoint_index += 1
-
-                        if self._current_explore_index != 1:
+                        if self._current_explore_index != 1 and self._explore_way_flag[self._current_explore_index] == True:
                             #cv detection drive stuff
                             #TAKE PHOTO HERE
-                            self.get_logger().info('SHOULD BE taking picture at POI...')
-                            self.get_logger().info('SHOULD BE taking picture at POI...')
-                            self.get_logger().info('SHOULD BE taking picture at POI...')
-                            self.get_logger().info('SHOULD BE taking picture at POI...')
-                            self.get_logger().info('SHOULD BE taking picture at POI...')
-                            self.get_logger().info('SHOULD BE taking picture at POI...')
+                            #classified waypoints
+                            self._publish_status_log(
+                            "Starting Classification at: P" + str(self._current_explore_index))
+                            
+                            self.start_object_detection_pub.publish(String(data="classify"))
 
-                        if self._current_waypoint_index < len(self._waypoints):
-                            self.get_logger().info(" EXPLORE POI:"+str(self._explore_way[self._current_explore_index]))
-                            self.get_logger().info(" EXPLORE POI:"+str(self._explore_way[self._current_explore_index]))
-                            self.get_logger().info(" EXPLORE POI:"+str(self._explore_way[self._current_explore_index]))
-                            self.get_logger().info(" EXPLORE POI:"+str(self._explore_way[self._current_explore_index]))
-                            self.get_logger().info(" EXPLORE POI:"+str(self._explore_way[self._current_explore_index]))
-                            self.get_logger().info(" EXPLORE POI:"+str(self._explore_way[self._current_explore_index]))
-                            self.get_logger().info(" EXPLORE POI:"+str(self._explore_way[self._current_explore_index]))
+                        
+                        if self._current_explore_index == 1:
+                            # self._current_explore_index += 1
                             self._send_nav2_goal()
                             self._current_explore_index += 1
 
 
-            
+                        #self._current_waypoint_index += 1
+
+                        
+                           
+
             elif status == GoalStatus.STATUS_ABORTED: 
                 self.get_logger().warn('Nav2 Aborted (Status 6). Likely a CPU/Timeout spike. Retrying...')
                 # DO NOT transition to WAITING. 
@@ -247,9 +330,8 @@ class GlobalControllerNode(Node):
                 self.retry_timer = self.create_timer(2.0, self._handle_oneshot_retry)                
             else:
                 # For other failures (Canceled, etc.), now we can halt
-                self.get_logger().error(f'Goal failed with status code: {status}. Mission Halted.')
-                self._transition_to(ControllerState.WAITING)
-    
+                self.get_logger().info(f'waiting for classification')
+
     def _handle_oneshot_retry(self):
         self.retry_timer.cancel()  # Kill it immediately so it only runs once
         self._retry_current_waypoint()
@@ -289,6 +371,11 @@ class GlobalControllerNode(Node):
         status_msg.data = self._state.value
         self._master_status_pub.publish(status_msg)
 
+    def _publish_status_log(self, message: str) -> None:
+        log_msg = String()
+        log_msg.data = message
+        self._status_log_pub.publish(log_msg)
+
     def _log_status_heartbeat(self) -> None:
         now = self.get_clock().now()
         elapsed_sec = (now - self._last_state_log_time).nanoseconds / 1e9
@@ -309,8 +396,7 @@ class GlobalControllerNode(Node):
 
     def _handle_costmap(self, msg: OccupancyGrid) -> None:
         self.costmap_data = msg
-        self.get_logger().info('Received new costmap data.')
-
+        
     def _handle_phase(self, msg: String) -> None:
         self.phase = msg.data
         # if self.phase == 'phase_2' and self.objects_isolated == False:
@@ -320,8 +406,47 @@ class GlobalControllerNode(Node):
 
         if self.phase == 'phase_2':
             self.get_logger().info('Phase 2 detected. Starting object isolation.')
+            self._save_costmap_to_disk()
             self.isolate_objects()
 
+    def _save_costmap_to_disk(self) -> None:
+        if self.costmap_data is None:
+            self.get_logger().warn('No costmap data available to save.')
+            return
+
+        costmap = self.costmap_data
+        save_dir = os.path.expanduser('~/costmap_exports')
+        os.makedirs(save_dir, exist_ok=True)
+        stamp = int(time.time())
+        img_path  = os.path.join(save_dir, f'costmap_{stamp}.png')
+        yaml_path = os.path.join(save_dir, f'costmap_{stamp}.yaml')
+
+        # Build grayscale image in map_saver style:
+        #   free (0) → 254 (white), occupied (100) → 0 (black), unknown (-1) → 205 (grey)
+        grid = np.array(costmap.data, dtype=np.int8).reshape(
+            costmap.info.height, costmap.info.width
+        )
+        img = np.full((costmap.info.height, costmap.info.width), 205, dtype=np.uint8)
+        img[grid == 0]   = 254
+        img[grid == 100] = 0
+        # Flip vertically: ROS grid has y=0 at bottom, PNG has y=0 at top
+        img = cv2.flip(img, 0)
+        cv2.imwrite(img_path, img)
+
+        ox  = costmap.info.origin.position.x
+        oy  = costmap.info.origin.position.y
+        res = costmap.info.resolution
+        with open(yaml_path, 'w') as f:
+            f.write(
+                f"image: {img_path}\n"
+                f"resolution: {res}\n"
+                f"origin: [{ox}, {oy}, 0.0]\n"
+                f"negate: 0\n"
+                f"occupied_thresh: 0.65\n"
+                f"free_thresh: 0.196\n"
+            )
+
+        self.get_logger().info(f'Costmap exported → {img_path}  |  {yaml_path}')
 
     def isolate_objects(self):
         self.get_logger().info('Isolating objects from costmap...')
@@ -335,17 +460,26 @@ class GlobalControllerNode(Node):
         img[grid == 100] = 255      # occupied  → white
         img[grid == 0]   = 0        # free      → black
         img[grid == -1]  = 0        # unknown   → black (or 127 if you want it visible)
-        _, binary = cv2.threshold(img, 250, 255, cv2.THRESH_BINARY)
 
-                
-        kernel = np.ones((3, 3), np.uint8)
-        # dilated = cv2.dilate(binary, kernel, iterations=1)
+
+
+        _, binary_before = cv2.threshold(occupied, 250, 255, cv2.THRESH_BINARY)
+
+         # Remove isolated single pixels before dilation
+        num_labels_clean, labels_clean, stats_clean, _ = cv2.connectedComponentsWithStats(binary_before, connectivity=8)
+        for i in range(1, num_labels_clean):
+            if stats_clean[i, cv2.CC_STAT_AREA] == 1:
+                binary_before[labels_clean == i] = 0
+
+        # kernel = np.ones((3, 3), np.uint8)
+        # binary_after = cv2.dilate(binary_before, kernel, iterations=1)
        
-        num_labels, labels, stats, centroids = cv2.connectedComponentsWithStats(binary)
+        num_labels, labels, stats, centroids = cv2.connectedComponentsWithStats(binary_before, connectivity=8)
 
-        #Apply minimum area
-        min_area = 5
+        object_positions = []
+        min_area = 10
         max_area = 100
+
         for i in range(1, num_labels):
             if stats[i, cv2.CC_STAT_AREA] > min_area and stats[i, cv2.CC_STAT_AREA] < max_area:
                 #find x,y coords
@@ -358,14 +492,12 @@ class GlobalControllerNode(Node):
                 cy_m = centroids[i][1] * res + costmap.info.origin.position.y
 
             
-                if abs(cx_m) < 10 and abs(cy_m) < 7 and math.sqrt(cx_m**2 + cy_m**2) < 11.0: # sanity check to filter out bad detections near the robot
+                if (cx_m < 10 and cx_m > -6) and (cy_m < 4 and cy_m > -8) and math.sqrt(cx_m**2 + cy_m**2) < 11.0:                    
                     if len(object_positions) == 0:
                         object_positions.append((cx_m, cy_m, 0.0))
                     else: 
                         if math.sqrt((object_positions[-1][0] - cx_m)**2  +  (object_positions[-1][1] - cy_m)**2) > 0.80:
                             object_positions.append((cx_m, cy_m, 0.0))
-
-
 
         for i in object_positions:
             angle_calc = round(math.atan2(i[1], i[0]),2)
@@ -376,9 +508,7 @@ class GlobalControllerNode(Node):
 
         s = str([{'x': x, 'y': y, 'phi': phi} for x, y, phi in object_positions])
         self.get_logger().info(f'publishing isolated objects: {s}')
-        self.isolated_objects_pub.publish(String(data=s))
-
-    
+        self.poi_pub.publish(String(data=s))
 
 
 def main(args=None) -> None:

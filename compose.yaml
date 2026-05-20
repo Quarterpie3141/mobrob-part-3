@@ -1,5 +1,32 @@
 services:
-  mobrob_aria2:
+  mobrob_cv:
+    build:
+      context: .
+      dockerfile: dockerfiles/CVDockerfile
+    pull_policy: build
+    network_mode: host
+    stdin_open: true
+    tty: true
+    privileged: true
+    volumes:
+      - /dev:/dev
+      - /home/team8/Documents:/opt/ros2ws/img
+
+  mobrob_sens:
+    build:
+      context: .
+      dockerfile: dockerfiles/sensDockerfile
+    pull_policy: build
+    logging:
+      driver: "none"
+    network_mode: host
+    stdin_open: true
+    tty: true
+    privileged: true
+    volumes:
+      - /dev:/dev
+
+  mobrob_aria:
     build:
       context: .
       dockerfile: dockerfiles/ariaDockerfile
@@ -13,7 +40,7 @@ services:
     volumes:
       - /dev:/dev
 
-  mobrob_ctrl2:
+  mobrob_ctrl:
     build:
       context: .
       dockerfile: dockerfiles/ctrlDockerfile
@@ -25,10 +52,10 @@ services:
     volumes:
       - /dev:/dev
 
-  mobrob_cv2:
+  mobrob_basic_drive:
     build:
       context: .
-      dockerfile: dockerfiles/CVDockerfile
+      dockerfile: dockerfiles/basicdriveDockerfile
     pull_policy: build
     network_mode: host
     stdin_open: true
@@ -36,9 +63,8 @@ services:
     privileged: true
     volumes:
       - /dev:/dev
-      - /home/team8/Documents:/opt/ros2ws/src/cv/img
 
-  mobrob_global_controller2:
+  mobrob_global_controller:
     build:
       context: .
       dockerfile: dockerfiles/globalcontrollerDockerfile
@@ -46,12 +72,13 @@ services:
     network_mode: host
     stdin_open: true
     tty: true
-    privileged: true 
+    privileged: true
     restart: unless-stopped
     volumes:
       - /dev:/dev
+      - costmap_exports:/root/costmap_exports
 
-  mobrob_ekf2:
+  mobrob_ekf:
     build:
       context: .
       dockerfile: dockerfiles/Sensors/EKFDockerfile
@@ -63,7 +90,7 @@ services:
     volumes:
       - /dev:/dev
 
-  mobrob_imu2:
+  mobrob_imu:
     build:
       context: .
       dockerfile: dockerfiles/Sensors/IMUDockerfile
@@ -75,7 +102,7 @@ services:
     volumes:
       - /dev:/dev
 
-  mobrob_sick2:
+  mobrob_sick:
     build:
       context: .
       dockerfile: dockerfiles/Sensors/SICKScanDockerfile
@@ -86,7 +113,7 @@ services:
     privileged: true
     volumes:
       - /dev:/dev
-      
+
   mobrob_nav3:
     build:
       context: .
@@ -99,35 +126,34 @@ services:
     volumes:
       - /dev:/dev
    
-  # mobrob_image_publisher:
-  #  build:
-  #    context: .
-  #    dockerfile: dockerfiles/image_publisherDockerfile
-  #  pull_policy: build
-  #  network_mode: host
-  #  stdin_open: true
-  #  tty: true
-  #  privileged: true
-  #  volumes: 
-  #    - /dev:/dev
-  #    - /dev/bus/usb:/dev/bus/usb
-  #  device_cgroup_rules:
-  #    - 'c 189:* rmw'
-      
-      
-  # mobrob_greek:
-  #   build:
-  #     context: .
-  #     dockerfile: dockerfiles/greekDockerfile
-  #   pull_policy: build
-  #   network_mode: host
-  #   stdin_open: true
-  #   tty: true
-  #   privileged: true
-  #   volumes:
-  #     - /dev:/dev
+  mobrob_image_publisher:
+   build:
+     context: .
+     dockerfile: dockerfiles/image_publisherDockerfile
+   pull_policy: build
+   network_mode: host
+   stdin_open: true
+   tty: true
+   privileged: true
+   volumes: 
+     - /dev:/dev
+     - /dev/bus/usb:/dev/bus/usb
+   device_cgroup_rules:
+     - 'c 189:* rmw'
   
-  mobrob_gui2:
+  mobrob_greek:
+    build:
+      context: .
+      dockerfile: dockerfiles/greekDockerfile
+    pull_policy: build
+    network_mode: host
+    stdin_open: true
+    tty: true
+    privileged: true
+    volumes:
+      - /dev:/dev
+
+  mobrob_gui:
     build:
       context: .
       dockerfile: dockerfiles/guiDockerfile
@@ -138,3 +164,16 @@ services:
     privileged: true
     volumes:
       - /dev:/dev
+
+  mobrob_compvis:
+    build:
+      context: .
+      dockerfile: dockerfiles/CompVisDockerfile
+    pull_policy: build
+    network_mode: host
+    stdin_open: true
+    tty: true
+    privileged: true
+    volumes:
+      - /dev:/dev  
+ 

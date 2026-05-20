@@ -12,7 +12,7 @@ RUN apt update
 RUN apt upgrade -y
 RUN apt install ros-jazzy-ros-base -y
 
-#cyclone 
+#cyclone
 RUN apt install ros-jazzy-rmw-cyclonedds-cpp -y
 
 # Source ROS on container start
@@ -31,9 +31,6 @@ RUN apt install libboost-all-dev -y
 RUN apt install python3-pip -y
 RUN apt install libusb-1.0-0-dev -y
 
-
-# RUN pip3 install --break-system-packages  --upgrade pip setuptools wheel
-
 RUN pip3 install --break-system-packages torch torchvision --index-url https://download.pytorch.org/whl/cpu
 RUN pip3 install --break-system-packages --ignore-installed ultralytics inference
 RUN pip3 install --break-system-packages "numpy<2"
@@ -51,7 +48,6 @@ ENV DEBIAN_FRONTEND=noninteractive
 ENV ROS_DOMAIN_ID=8
 ENV RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
 ENV CYCLONEDDS_URI="<CycloneDDS><Domain><General><Interfaces><NetworkInterface name=\"enp89s0\"/></Interfaces></General></Domain></CycloneDDS>"
-# ENV CYCLONEDDS_URI="<CycloneDDS><Domain><General><Interfaces><NetworkInterface name=\"wlp0s20f3\"/></Interfaces></General></Domain></CycloneDDS>"
 
 #build all packages in the workspace
 RUN . /opt/ros/jazzy/setup.bash && colcon build --packages-select greek
