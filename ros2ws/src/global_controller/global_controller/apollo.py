@@ -249,6 +249,9 @@ class GlobalControllerNode(Node):
 
                 self._current_waypoint_index += 1
                 if self._current_waypoint_index < len(self._waypoints):
+                    self._publish_status_log(
+                            "Exploring enviroment and building map..."
+                    )
                     self._send_nav2_goal()
                 else:
                     self.get_logger().info('Mapping Initial Complete!')
@@ -271,13 +274,13 @@ class GlobalControllerNode(Node):
                             self._explore_way_flag.append(False) # intermediate point flag is false
                             self.get_logger().info(f'Added intermediate waypoint at X={interm_x}, Y={interm_y}, Phi={interm_phi} to bridge gap to explore point.')
                             self._publish_status_log(
-                            "Going to intermediate waypoint:" + str(self._waypoints[-1])
+                            "Going to intermediate waypoint: I" + str(len(self._waypoints)-1) + " on the way to POI P" + str(self._current_explore_index)
                             )
 
                         self._waypoints.append(self._explore_way[self._current_explore_index])
                         self._explore_way_flag.append(True)
                         self._publish_status_log(
-                            "SENDING EXPLORE POI:" + str(self._explore_way[self._current_explore_index])
+                            "Going to POI P" + str(self._current_explore_index)
                         )
 
                         if self._current_explore_index != 1 and self._explore_way_flag[self._current_explore_index] == True:
@@ -285,8 +288,7 @@ class GlobalControllerNode(Node):
                             #TAKE PHOTO HERE
                             #classified waypoints
                             self._publish_status_log(
-                            "Starting Classification at:" + str(self._explore_way[self._current_explore_index])
-                            )
+                            "Starting Classification at: P" + str(self._current_explore_index))
                             self.start_letter_detection_pub.publish(String(data="classify"))
                         
                         if self._current_explore_index == 1:
