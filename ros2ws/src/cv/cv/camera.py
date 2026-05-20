@@ -27,11 +27,13 @@ class DepthAICameraNode(Node):
         self.master_status_sub = self.create_subscription(String, '/master/status', self.master_status_callback, 10)
         #self.joy_sub = self.create_subscription(Joy, '/joy', self.joy_callback, 10)
         self.odom_sub = self.create_subscription(Odometry, '/odom/wheels', self.odom_callback, 10)
+        self.trigger_sub = self.create_subscription(String, '/check_object', self.trigger_callback, 10)
         self.cam_sub = self.create_subscription(Image, 'camera/raw_image', self.cam_sub_callback, 10)
         self.scan_complete_pub = self.create_publisher(Bool, '/scan_complete', 10)
         self.timer = self.create_timer(0.1, self.timer_callback)
 
         self.master_status = None
+        self.taking_picture = False
         self.last_master_status = None
         self.frame = None
         self.results = []
@@ -59,128 +61,127 @@ class DepthAICameraNode(Node):
         self.label_map = self.model.names
 
     def cam_sub_callback(self, msg):
-        """
-        - Camera subscriber callback.
-        - Stores the latest camera frame
-        - Runs YOLO inference every 3rd frame
-        - Publishes all detections as a Detection2DArray
-        """
-        if not hasattr(self, 'framecount'):
-            self.framecount = 0
+        if self.taking_picture:
+            """
+            - Camera subscriber callback.
+            - Stores the latest camera frame
+            - Runs YOLO inference every 3rd frame
+            - Publishes all detections as a Detection2DArray
+            """
+            if not hasattr(self, 'framecount'):
+                self.framecount = 0
 
-        self.framecount += 1
+            self.framecount += 1
 
-        # only process every 3rd frame
-        if self.framecount % 3 != 0:
-            return
+            # only process every 3rd frame
+            if self.framecount % 3 != 0:
+                return
 
-        self.frame = self.bridge.imgmsg_to_cv2(
-            msg,
-            desired_encoding='bgr8'
-        )
+            self.frame = self.bridge.imgmsg_to_cv2(
+                msg,
+                desired_encoding='bgr8'
+            )
 
-        self.results = self.model.predict(
-            self.frame,
-            conf=0.7,
-            verbose=False
-        )
-        if self.master_status == 'taking picture':
-            return
+            self.results = self.model.predict(
+                self.frame,
+                conf=0.7,
+                verbose=False
+            )
 
-        detection_array_msg = Detection2DArray()
+            detection_array_msg = Detection2DArray()
 
-        time_now = self.get_clock().now().to_msg()
+            time_now = self.get_clock().now().to_msg()
 
-        detection_array_msg.header.stamp = time_now
-        detection_array_msg.header.frame_id = "camera_link"
+            detection_array_msg.header.stamp = time_now
+            detection_array_msg.header.frame_id = "camera_link"
 
-        for result in self.results:
+            for result in self.results:
 
-            if result.boxes is None:
-                continue
-
-            for box in result.boxes:
-
-                x1, y1, x2, y2 = (
-                    box.xyxy[0]
-                        .cpu()
-                        .numpy()
-                        .astype(int)
-                )
-
-                width = x2 - x1
-                height = y2 - y1
-
-                # optional filtering
-                if width * height < self.min_box_area:
+                if result.boxes is None:
                     continue
 
-                detection = Detection2D()
+                for box in result.boxes:
 
-                bbox = BoundingBox2D()
+                    x1, y1, x2, y2 = (
+                        box.xyxy[0]
+                            .cpu()
+                            .numpy()
+                            .astype(int)
+                    )
 
-                center_x = float((x1 + x2) / 2.0)
-                center_y = float((y1 + y2) / 2.0)
+                    width = x2 - x1
+                    height = y2 - y1
 
-                bbox.center.position.x = center_x
-                bbox.center.position.y = center_y
+                    # optional filtering
+                    if width * height < self.min_box_area:
+                        continue
 
-                bbox.size_x = float(width)
-                bbox.size_y = float(height)
+                    detection = Detection2D()
 
-                detection.bbox = bbox
+                    bbox = BoundingBox2D()
 
-                cls = int(box.cls[0].cpu().numpy())
+                    center_x = float((x1 + x2) / 2.0)
+                    center_y = float((y1 + y2) / 2.0)
 
-                classification = self.label_map.get(
-                    cls,
-                    str(cls)
-                )
+                    bbox.center.position.x = center_x
+                    bbox.center.position.y = center_y
 
-                confidence = float(
-                    box.conf[0].cpu().numpy()
-                )
+                    bbox.size_x = float(width)
+                    bbox.size_y = float(height)
 
-                hypothesis = ObjectHypothesisWithPose()
+                    detection.bbox = bbox
 
-                hypothesis.hypothesis.class_id = classification
-                hypothesis.hypothesis.score = confidence
+                    cls = int(box.cls[0].cpu().numpy())
 
-                detection.results.append(hypothesis)
+                    classification = self.label_map.get(
+                        cls,
+                        str(cls)
+                    )
 
-                detection_array_msg.detections.append(detection)
+                    confidence = float(
+                        box.conf[0].cpu().numpy()
+                    )
 
-                cv2.rectangle(
-                    self.frame,
-                    (x1, y1),
-                    (x2, y2),
-                    (0, 255, 0),
-                    2
-                )
+                    hypothesis = ObjectHypothesisWithPose()
 
-                cv2.putText(
-                    self.frame,
-                    f"{classification}: {confidence:.2f}",
-                    (x1, y1 - 10),
-                    cv2.FONT_HERSHEY_SIMPLEX,
-                    0.6,
-                    (0, 255, 0),
-                    2
-                )
+                    hypothesis.hypothesis.class_id = classification
+                    hypothesis.hypothesis.score = confidence
 
-        #publish all detections while not in searching mode
-        self.detection_pub.publish(detection_array_msg)
+                    detection.results.append(hypothesis)
 
-        detection_img_msg = self.bridge.cv2_to_imgmsg(
-            self.frame,
-            encoding="bgr8"
-        )
+                    detection_array_msg.detections.append(detection)
 
-        detection_img_msg.header.stamp = time_now
-        detection_img_msg.header.frame_id = "camera_link"
+                    cv2.rectangle(
+                        self.frame,
+                        (x1, y1),
+                        (x2, y2),
+                        (0, 255, 0),
+                        2
+                    )
 
-        self.image_pub.publish(detection_img_msg)
+                    cv2.putText(
+                        self.frame,
+                        f"{classification}: {confidence:.2f}",
+                        (x1, y1 - 10),
+                        cv2.FONT_HERSHEY_SIMPLEX,
+                        0.6,
+                        (0, 255, 0),
+                        2
+                    )
 
+            #publish all detections while not in searching mode
+            self.detection_pub.publish(detection_array_msg)
+
+            detection_img_msg = self.bridge.cv2_to_imgmsg(
+                self.frame,
+                encoding="bgr8"
+            )
+
+            detection_img_msg.header.stamp = time_now
+            detection_img_msg.header.frame_id = "camera_link"
+
+            self.image_pub.publish(detection_img_msg)
+            self.taking_picture = False
 
     def master_status_callback(self, msg: String):
         self.last_master_status = getattr(self, 'master_status', None)
@@ -229,184 +230,188 @@ class DepthAICameraNode(Node):
 
         return diff
 
-    def timer_callback(self):
-        """
-            Timer callback for autonomous object image capture.
+    # def timer_callback(self):
+    #     """
+    #         Timer callback for autonomous object image capture.
 
-            When the robot enters the 'taking picture' state, this callback:
-                1. Continuously acquires RGB frames from the camera.
-                2. Runs object detection inference on each frame.
-                3. Filters detections using:
-                    - minimum confidence threshold
-                    - minimum bounding box size
-                4. Selects the most relevant object candidate.
-                5. Rotates the robot in place using Twist commands until the
-                   object is centered in the image frame.
-                6. Applies temporal stability checks across multiple frames to
-                   avoid transient detections.
-                7. Stops robot motion once a stable centered target is achieved.
-                8. Captures and saves an image of the detected object.
-                9. Publishes a completion flag to notify the global
-                   controller that image acquisition is complete.
+    #         When the robot enters the 'taking picture' state, this callback:
+    #             1. Continuously acquires RGB frames from the camera.
+    #             2. Runs object detection inference on each frame.
+    #             3. Filters detections using:
+    #                 - minimum confidence threshold
+    #                 - minimum bounding box size
+    #             4. Selects the most relevant object candidate.
+    #             5. Rotates the robot in place using Twist commands until the
+    #                object is centered in the image frame.
+    #             6. Applies temporal stability checks across multiple frames to
+    #                avoid transient detections.
+    #             7. Stops robot motion once a stable centered target is achieved.
+    #             8. Captures and saves an image of the detected object.
+    #             9. Publishes a completion flag to notify the global
+    #                controller that image acquisition is complete.
 
-            This callback also publishes annotated detection images
+    #         This callback also publishes annotated detection images
 
-            Assumptions:
-                - The mission/controller node handles waypoint generation and navigation.
-                - This node is responsible only for local visual alignment and image capture.
-                - The robot is capable of differential-drive turning in place.
+    #         Assumptions:
+    #             - The mission/controller node handles waypoint generation and navigation.
+    #             - This node is responsible only for local visual alignment and image capture.
+    #             - The robot is capable of differential-drive turning in place.
 
-        """
-
-
-        #protect against this locking out/fighting global controller if needed
-        if self.master_status != 'taking picture':
-            return
+    #     """
 
 
-        #stop searching after 360 spin
-        if self.total_yaw >= self.full_rotation_threshold:
-            self.get_logger().warn("360 scan complete, no valid object found")
+    #     #protect against this locking out/fighting global controller if needed
+    #     if self.master_status != 'taking picture':
+    #         return
 
-            stop = Twist()
-            self.cmd_vel_pub.publish(stop)
 
-            self.searching = False
-            self.yaw_initialized = False
-            self.total_yaw = 0.0
+    #     #stop searching after 360 spin
+    #     if self.total_yaw >= self.full_rotation_threshold:
+    #         self.get_logger().warn("360 scan complete, no valid object found")
 
-            fail_msg = Bool()
-            fail_msg.data = False
-            self.scan_complete_pub.publish(fail_msg)
+    #         stop = Twist()
+    #         self.cmd_vel_pub.publish(stop)
 
-            self.master_status = "idle"
+    #         self.searching = False
+    #         self.yaw_initialized = False
+    #         self.total_yaw = 0.0
 
-            return
+    #         fail_msg = Bool()
+    #         fail_msg.data = False
+    #         self.scan_complete_pub.publish(fail_msg)
 
-        if self.frame is None:
-            return
-        else:
-            currFrame = self.frame
-            currResults = self.results
+    #         self.master_status = "idle"
 
-        if not self.searching:
-            self.searching = True
-            self.total_yaw = 0.0
-            self.yaw_initialised = False
+    #         return
 
-        frame_h, frame_w = currFrame.shape[:2]
-        frame_center_x = frame_w / 2.0
-        best_detection = None
-        best_area = 0
+    #     if self.frame is None:
+    #         return
+    #     else:
+    #         currFrame = self.frame
+    #         currResults = self.results
 
-        for result in currResults:
-            if result.boxes is None:
-                continue
+    #     if not self.searching:
+    #         self.searching = True
+    #         self.total_yaw = 0.0
+    #         self.yaw_initialised = False
 
-            for box in result.boxes:
-                x1, y1, x2, y2 = box.xyxy[0].cpu().numpy().astype(int)
+    #     frame_h, frame_w = currFrame.shape[:2]
+    #     frame_center_x = frame_w / 2.0
+    #     best_detection = None
+    #     best_area = 0
 
-                box_width = x2 - x1
-                box_height = y2 - y1
-                area = box_width * box_height
+    #     for result in currResults:
+    #         if result.boxes is None:
+    #             continue
 
-                if area < self.min_box_area:
-                    continue
+    #         for box in result.boxes:
+    #             x1, y1, x2, y2 = box.xyxy[0].cpu().numpy().astype(int)
 
-                center_x = (x1 + x2) / 2.0
+    #             box_width = x2 - x1
+    #             box_height = y2 - y1
+    #             area = box_width * box_height
 
-                if area > best_area:
-                    best_area = area
+    #             if area < self.min_box_area:
+    #                 continue
 
-                    #get class index and convert to label
-                    cls = int(box.cls[0].cpu().numpy())
-                    classification = self.label_map.get(cls, str(cls))
+    #             center_x = (x1 + x2) / 2.0
 
-                    #store class lookup
-                    best_detection = {
-                        'classification': classification,
-                        'x1': x1,
-                        'y1': y1,
-                        'x2': x2,
-                        'y2': y2,
-                        'center_x': center_x,
-                        'area': area
-                    }
+    #             if area > best_area:
+    #                 best_area = area
 
-        cmd = Twist()
+    #                 #get class index and convert to label
+    #                 cls = int(box.cls[0].cpu().numpy())
+    #                 classification = self.label_map.get(cls, str(cls))
 
-        if best_detection is None:
-            self.target_locked_frames = 0
-            cmd.angular.z = 0.25
-            self.cmd_vel_pub.publish(cmd)
-            return
+    #                 #store class lookup
+    #                 best_detection = {
+    #                     'classification': classification,
+    #                     'x1': x1,
+    #                     'y1': y1,
+    #                     'x2': x2,
+    #                     'y2': y2,
+    #                     'center_x': center_x,
+    #                     'area': area
+    #                 }
 
-        #target found, try to centre - this may be optimistic, may need to add scoring metric as a function of area and distance too camera
-        target_error = best_detection['center_x'] - frame_center_x
-        kP = 0.0025
-        cmd.angular.z = -kP * target_error
-        cmd.angular.z = max(min(cmd.angular.z, 0.3), -0.3)
+    #     cmd = Twist()
 
-        self.cmd_vel_pub.publish(cmd)
+    #     if best_detection is None:
+    #         self.target_locked_frames = 0
+    #         cmd.angular.z = 0.25
+    #         self.cmd_vel_pub.publish(cmd)
+    #         return
 
-        centered = abs(target_error) < self.center_threshold_px
+    #     #target found, try to centre - this may be optimistic, may need to add scoring metric as a function of area and distance too camera
+    #     target_error = best_detection['center_x'] - frame_center_x
+    #     kP = 0.0025
+    #     cmd.angular.z = -kP * target_error
+    #     cmd.angular.z = max(min(cmd.angular.z, 0.3), -0.3)
 
-        #stay centered for a few frames to combat false postives
-        if centered:
-            self.target_locked_frames += 1
-        else:
-            self.target_locked_frames = 0
+    #     self.cmd_vel_pub.publish(cmd)
 
-        x1 = best_detection['x1']
-        y1 = best_detection['y1']
-        x2 = best_detection['x2']
-        y2 = best_detection['y2']
+    #     centered = abs(target_error) < self.center_threshold_px
 
-        #draw bounding box
-        cv2.rectangle(currFrame, (x1, y1), (x2, y2), (0, 255, 0), 2)
+    #     #stay centered for a few frames to combat false postives
+    #     if centered:
+    #         self.target_locked_frames += 1
+    #     else:
+    #         self.target_locked_frames = 0
 
-        #draw centre line
-        cv2.line(currFrame, (int(frame_center_x), 0), (int(frame_center_x), frame_h), (255, 0, 0), 2)
+    #     x1 = best_detection['x1']
+    #     y1 = best_detection['y1']
+    #     x2 = best_detection['x2']
+    #     y2 = best_detection['y2']
 
-        #label object
-        detected_class = best_detection['classification']
-        cv2.putText(
-            currFrame,
-            f"Locked: {detected_class}",
-            (20, 40),
-            cv2.FONT_HERSHEY_SIMPLEX,
-            1,
-            (0, 255, 0),
-            2,
-        )
+    #     #draw bounding box
+    #     cv2.rectangle(currFrame, (x1, y1), (x2, y2), (0, 255, 0), 2)
 
-        if self.target_locked_frames >= self.required_locked_frames:
+    #     #draw centre line
+    #     cv2.line(currFrame, (int(frame_center_x), 0), (int(frame_center_x), frame_h), (255, 0, 0), 2)
 
-            stop_cmd = Twist()
-            self.cmd_vel_pub.publish(stop_cmd)
+    #     #label object
+    #     detected_class = best_detection['classification']
+    #     cv2.putText(
+    #         currFrame,
+    #         f"Locked: {detected_class}",
+    #         (20, 40),
+    #         cv2.FONT_HERSHEY_SIMPLEX,
+    #         1,
+    #         (0, 255, 0),
+    #         2,
+    #     )
 
-            timestamp = int(time.time())
+    #     if self.target_locked_frames >= self.required_locked_frames:
 
-            filename = f"{self.imgdir}/{detected_class}_{timestamp}.jpg"
-            cv2.imwrite(filename, currFrame)
-            self.get_logger().info(f"Saved image: {filename}")
+    #         stop_cmd = Twist()
+    #         self.cmd_vel_pub.publish(stop_cmd)
 
-            #inform controller
-            done_msg = Bool()
-            done_msg.data = True
+    #         timestamp = int(time.time())
 
-            self.scan_complete_pub.publish(done_msg)
+    #         filename = f"{self.imgdir}/{detected_class}_{timestamp}.jpg"
+    #         cv2.imwrite(filename, currFrame)
+    #         self.get_logger().info(f"Saved image: {filename}")
 
-            self.target_locked_frames = 0
-            self.master_status = 'idle'
+    #         #inform controller
+    #         done_msg = Bool()
+    #         done_msg.data = True
 
-        detection_img_msg = self.bridge.cv2_to_imgmsg(currFrame, encoding="bgr8")
-        time_now = self.get_clock().now().to_msg()
+    #         self.scan_complete_pub.publish(done_msg)
 
-        detection_img_msg.header.stamp = time_now
+    #         self.target_locked_frames = 0
+    #         self.master_status = 'idle'
 
-        detection_img_msg.header.frame_id = "camera_link"
-        self.image_pub.publish(detection_img_msg)
+    #     detection_img_msg = self.bridge.cv2_to_imgmsg(currFrame, encoding="bgr8")
+    #     time_now = self.get_clock().now().to_msg()
+
+    #     detection_img_msg.header.stamp = time_now
+
+    #     detection_img_msg.header.frame_id = "camera_link"
+    #     self.image_pub.publish(detection_img_msg)
+
+    def trigger_callback(self, msg):
+        self.taking_picture = True
+        self.get_logger().info("Received trigger to take picture, entering search mode")
 
 def main(args=None):
     rclpy.init(args=args)

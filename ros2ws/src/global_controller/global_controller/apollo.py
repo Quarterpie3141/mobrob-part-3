@@ -14,6 +14,7 @@ from rclpy.action import ActionClient
 from nav2_msgs.action import NavigateToPose 
 from action_msgs.msg import GoalStatus # Add this import at the top
 from nav_msgs.msg import OccupancyGrid
+from vision_msgs.msg import Detection2DArray
 
 
 import cv2
@@ -106,6 +107,10 @@ class GlobalControllerNode(Node):
         self.letter_detection_sub = self.create_subscription(String, '/camera/letter_detection', self.letter_detection_callback, 10)
         self.last_detected_letter = None
 
+        #object detection signal publisher
+        self.start_object_detection_pub = self.create_publisher(String, '/check_object', 10)
+        self.object_detection_sub = self.create_subscription(Detection2DArray, '/camera/detections', self.object_detection_callback, 10)
+
         # Nav2 Action Client
         self._nav_client = ActionClient(self, NavigateToPose, 'navigate_to_pose')
         
@@ -115,6 +120,19 @@ class GlobalControllerNode(Node):
         self.get_logger().info(f'Loaded {len(self._waypoints)} Nav2 waypoints.')
         self._publish_state()
         self.get_logger().info(f'Global controller started in state: {self._state.value}')
+
+    def object_detection_callback(self, msg: Detection2DArray) -> None:
+        if len(msg.detections) > 0:
+            self.get_logger().info(f'Object detection callback received {len(msg.detections)} detections.')
+            self._publish_status_log(
+                f"Classified object as {msg.detections[0].results[0].hypothesis.class_id}."
+            )
+        
+            # TO-DO call bens funciton depnding on the object classification
+            self.start_letter_detection_pub.publish(String(data="classify"))
+
+        else:
+            self.get_logger().info('Object detection callback received no detections.')
 
     def letter_detection_callback(self, msg: String) -> None:
         self.last_detected_letter = msg.data
@@ -247,8 +265,6 @@ class GlobalControllerNode(Node):
             if status == GoalStatus.STATUS_SUCCEEDED:
                 self.get_logger().info('Goal succeeded! Moving to next waypoint.')
 
-
-
                 self._current_waypoint_index += 1
                 if self._current_waypoint_index < len(self._waypoints):
                     self._publish_status_log(
@@ -292,7 +308,9 @@ class GlobalControllerNode(Node):
                             #classified waypoints
                             self._publish_status_log(
                             "Starting Classification at: P" + str(self._current_explore_index))
-                            self.start_letter_detection_pub.publish(String(data="classify"))
+                            
+                            self.start_object_detection_pub.publish(String(data="classify"))
+
                         
                         if self._current_explore_index == 1:
                             # self._current_explore_index += 1
