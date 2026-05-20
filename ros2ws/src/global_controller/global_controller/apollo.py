@@ -136,21 +136,23 @@ class GlobalControllerNode(Node):
                 f"Classified object as {msg.detections[0].results[0].hypothesis.class_id}."
             )
             if msg.detections[0].results[0].hypothesis.class_id == 'red trashcan' or msg.detections[0].results[0].hypothesis.class_id == 'yellow trashcan':
+                self._current_explore_index += 1
                 self.start_letter_detection_pub.publish(String(data="classify"))
                 self.get_logger().info('Trashcan detected: Starting letter classification')
-                self._publish_status_log(
-                f"Classified object as {msg.detections[0].results[0].hypothesis.class_id} Starting Letter Classification."
-            )
+                self._publish_status_log(f"Classified object as {msg.detections[0].results[0].hypothesis.class_id} Starting Letter Classification.")
+                self._send_nav2_goal()
+
+                #COME BACK HERE 
             else:
                 self._current_explore_index += 1
-                self._send_nav2_goal()
                 self.get_logger().info(f"Classified object as {msg.detections[0].results[0].hypothesis.class_id}. Moving to next explore point.")
-                self._publish_status_log(
-                f"Classified object as {msg.detections[0].results[0].hypothesis.class_id} Moving to next waypoint."
-            )
+                self._publish_status_log(f"Classified object as {msg.detections[0].results[0].hypothesis.class_id} Moving to next waypoint.")
+                self._send_nav2_goal()
         
         else:
             self.get_logger().info('Object detection callback received no detections.')
+            self._current_explore_index += 1
+            self._send_nav2_goal()
 
     def letter_detection_callback(self, msg: String) -> None:
         self.last_detected_letter = msg.data
@@ -182,13 +184,6 @@ class GlobalControllerNode(Node):
 
 
             if self._current_waypoint_index < (len(self._waypoints)):
-                self.get_logger().info(" EXPLORE POI:"+str(self._explore_way[self._current_explore_index]))
-                self.get_logger().info(" EXPLORE POI:"+str(self._explore_way[self._current_explore_index]))
-                self.get_logger().info(" EXPLORE POI:"+str(self._explore_way[self._current_explore_index]))
-                self.get_logger().info(" EXPLORE POI:"+str(self._explore_way[self._current_explore_index]))
-                self.get_logger().info(" EXPLORE POI:"+str(self._explore_way[self._current_explore_index]))
-                self.get_logger().info(" EXPLORE POI:"+str(self._explore_way[self._current_explore_index]))
-                self.get_logger().info(" EXPLORE POI:"+str(self._explore_way[self._current_explore_index]))
                 self._current_explore_index += 1
                 self._send_nav2_goal()
 
@@ -428,19 +423,14 @@ class GlobalControllerNode(Node):
         self._send_nav2_goal() # Start driving the new route immediately
         self._current_route_index = 1 # reset route index to start from the first point in the new route
         
-
-
     def _handle_oneshot_retry(self):
         self.retry_timer.cancel()  # Kill it immediately so it only runs once
-        self._current_waypoint_index -= 1 
         self._retry_current_waypoint()
     
     def _retry_current_waypoint(self):
         """Helper to resend the goal without resetting the mission."""
         self.get_logger().info(f'Retrying waypoint {self._current_waypoint_index + 1}...')
         self._send_nav2_goal()
-        self._current_waypoint_index += 1
-
     def _cancel_current_nav_goal(self) -> None:
         if self._goal_handle is not None:
             self.get_logger().info('Canceling current Nav2 goal execution.')
