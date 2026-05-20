@@ -58,7 +58,6 @@ socket.on('pause_state', (data) => {
 
 socket.on('nav2_goal', (data) => {
   currentGoal = data;
-  addLog(`Heading to new goal: (${data.x.toFixed(2)}, ${data.y.toFixed(2)}, φ=${data.phi.toFixed(2)})`, 'info');
   drawMinimap();
 });
 
@@ -390,7 +389,7 @@ function drawMinimap() {
       const gx = (gCellX / cw) * w;
       const gy = h - (gCellY / ch) * h;
 
-      ctx.strokeStyle = '#5b81e883';
+      ctx.strokeStyle = '#5b81e8b6';
       ctx.lineWidth = 1;
       ctx.setLineDash([4, 4]);
       ctx.beginPath();
