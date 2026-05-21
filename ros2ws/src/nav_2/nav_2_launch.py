@@ -118,7 +118,7 @@ def generate_launch_description():
         condition=IfCondition(is_nav_or_slam_nav),
         output='screen',
         parameters=[nav2_params, {'use_sim_time': use_sim_time}],
-        remappings=[('cmd_vel', 'cmd_vel')],
+        remappings=[('cmd_vel', 'cmd_vel_controller_server')],
     )
 
     planner_server = Node(
@@ -137,6 +137,7 @@ def generate_launch_description():
         condition=IfCondition(is_nav_or_slam_nav),
         output='screen',
         parameters=[nav2_params, {'use_sim_time': use_sim_time}],
+        remappings=[('cmd_vel', 'cmd_vel_behavior_server')],
     )
 
     bt_navigator = Node(
@@ -166,7 +167,7 @@ def generate_launch_description():
         parameters=[nav2_params, {'use_sim_time': use_sim_time}],
         remappings=[
             ('cmd_vel',         'cmd_vel_nav'),
-            ('cmd_vel_smoothed', 'cmd_vel'),
+            ('cmd_vel_smoothed', 'cmd_vel_smoothed'),
         ],
     )
 
@@ -203,6 +204,13 @@ def generate_launch_description():
         }],
     )
 
+    cmd_relay_node = Node(
+        package='nav_2',        
+        executable='cmd_vel_relay', 
+        name='cmd_vel_relay',
+        output='screen'
+    )
+
     return LaunchDescription([
         DeclareLaunchArgument('mode',         default_value='slam_nav',
                               description='Operating mode: hardware | slam | slam_nav | nav'),
@@ -223,5 +231,5 @@ def generate_launch_description():
         velocity_smoother,
         lifecycle_manager_map,
         lifecycle_manager_nav,
-
+        cmd_relay_node
     ])

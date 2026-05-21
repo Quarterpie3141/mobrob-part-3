@@ -34,7 +34,7 @@ class ControlJoyNode(Node):
         self._linear_deadzone = float(self.get_parameter("linear_deadzone").value)
         self._angular_deadzone = float(self.get_parameter("angular_deadzone").value)
 
-        self._cmd_pub = self.create_publisher(Twist, "/cmd_vel_joy", 10)
+        self._cmd_pub = self.create_publisher(Twist, "/cmd_vel", 10)
         self.slave_status_pub = self.create_publisher(String, "/slave/status", 10)
         
         self.create_subscription(Joy, "/joy", self._joy_callback, 10)

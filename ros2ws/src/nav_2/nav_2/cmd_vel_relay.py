@@ -17,10 +17,23 @@ class CmdVelRelay(Node):
             10)
         self.current_joy = None
         self.joy_subscription = self.create_subscription(Joy, '/joy', self.joy_callback, 10)
+
+        self.smoothed_cmd_vel_subscription = self.create_subscription(
+            Twist,
+            'cmd_vel_smoothed', 
+            self.listener_callback, 
+            10)
+        self.behavior_cmd_vel_subscription = self.create_subscription(
+            Twist,
+            'cmd_vel_behavior_server',
+            self.listener_callback,
+            10)
+        self.controller_cmd_vel_subscription = self.create_subscription(
+            Twist,
+            'cmd_vel_controller_server',
+            self.listener_callback,
+            10)
         
-        self.cmd_vel_joy_subscriber = self.create_subscription(Twist, '/cmd_vel_joy', self.listener_callback, 10)
-
-
 
         # Publisher: Sends it to the final motor command topic
         self.publisher_ = self.create_publisher(Twist, 'cmd_vel', 10)
@@ -36,6 +49,11 @@ class CmdVelRelay(Node):
         self.estopped = msg.data
 
     def listener_callback(self, msg):
+
+        self.publisher_.publish(msg)
+        self.get_logger().info(f'Relaying: Linear X: {msg.linear.x:.2f}, Angular Z: {msg.angular.z:.2f}')
+
+
         # Simply take the received message and publish it to the new topic
         if self.estopped:
             command = Twist()
