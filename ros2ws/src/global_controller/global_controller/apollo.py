@@ -270,11 +270,11 @@ class GlobalControllerNode(Node):
             if status == GoalStatus.STATUS_SUCCEEDED:
 
                 if self.phase == 'phase_2':
-                    self.current_waypoint_index += 1
+                    self._current_waypoint_index += 1
                    
-                    if self.current_waypoint_index < len(self._waypoints):
+                    if self._current_waypoint_index < len(self._waypoints):
                         self._publish_status_log(
-                            "PHASE2" + str(self._waypoints[self.current_waypoint_index])
+                            "PHASE2" + str(self._waypoints[self._current_waypoint_index])
                         )
                     
                         self._send_nav2_goal()
@@ -345,9 +345,6 @@ class GlobalControllerNode(Node):
         parsed = json.loads(msg.data) # just to validate it's proper json, will throw if not
         waypoint_list = [(wp[0], wp[1], wp[2]) for wp in parsed]
 
-
-        if len(waypoint_list) <= 1:
-            return waypoint_list
 
         def dist(a, b):
             return math.sqrt((a[0] - b[0])**2 + (a[1] - b[1])**2)
