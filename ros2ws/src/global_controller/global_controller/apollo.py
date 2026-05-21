@@ -441,8 +441,8 @@ class GlobalControllerNode(Node):
 
         for i in object_positions:
             angle_calc = round(math.atan2(i[1], i[0]),2)
-            new_x = round(i[0] - 1.0 * math.cos(angle_calc),2)
-            new_y = round(i[1] - 1.0 * math.sin(angle_calc),2)
+            new_x = round(i[0] - 2.0 * math.cos(angle_calc),2)
+            new_y = round(i[1] - 2.0 * math.sin(angle_calc),2)
             self._waypoints.append((new_x, new_y, angle_calc))
         self._publish_status_log(
             "Objects Isolated Complete"
