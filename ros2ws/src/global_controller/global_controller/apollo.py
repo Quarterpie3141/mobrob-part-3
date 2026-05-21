@@ -95,7 +95,7 @@ class GlobalControllerNode(Node):
 
         #phase
         self.create_subscription(String, '/phase', self._handle_phase, 10)
-        self.phase = 'phase_1'
+        self.phase = None
 
         #detect letter signal publisher
         self.start_letter_detection_pub = self.create_publisher(String, '/check_label', 10)
@@ -268,48 +268,61 @@ class GlobalControllerNode(Node):
             status = future.result().status
 
             if status == GoalStatus.STATUS_SUCCEEDED:
-                self.get_logger().info('Goal succeeded! Moving to next waypoint.')
-                self.get_logger().info('[RESULT][PHASE_1] Entered phase_1 success branch.')
-                self._current_waypoint_index += 1
-                self.get_logger().info(
-                    f'[RESULT][PHASE_1] Incremented waypoint index to {self._current_waypoint_index} (total={len(self._waypoints)}).'
-                )
-                if self._current_waypoint_index < len(HARDCODED_WAYPOINTS):
+
+                if self.phase == 'phase_2':
+                    self.current_waypoint_index += 1
+                   
+                    if self.current_waypoint_index < len(self._waypoints):
+                        self._publish_status_log(
+                            "PHASE2" + str(self._waypoints[self.current_waypoint_index])
+                        )
+                    
+                        self.send_nav2_goal()
+
+                else: 
+
+                    self.get_logger().info('Goal succeeded! Moving to next waypoint.')
+                    self.get_logger().info('[RESULT][PHASE_1] Entered phase_1 success branch.')
+                    self._current_waypoint_index += 1
                     self.get_logger().info(
-                        f'[RESULT][PHASE_1] More base waypoints remain. Sending next waypoint index {self._current_waypoint_index}.'
+                        f'[RESULT][PHASE_1] Incremented waypoint index to {self._current_waypoint_index} (total={len(self._waypoints)}).'
                     )
-                    self._publish_status_log(
-                            "Exploring enviroment and building map..."
-                    )
-                    self._send_nav2_goal()
-                else:
-                    self.get_logger().info('Mapping Initial Complete!')
-
-                    if self._current_waypoint_index == len(HARDCODED_WAYPOINTS):
-                        self._save_costmap_to_disk()
-                        self.isolate_objects()
-
+                    if self._current_waypoint_index < len(HARDCODED_WAYPOINTS):
+                        self.get_logger().info(
+                            f'[RESULT][PHASE_1] More base waypoints remain. Sending next waypoint index {self._current_waypoint_index}.'
+                        )
                         self._publish_status_log(
-                            "Going to POI P" + str(self._current_waypoint_index - len(HARDCODED_WAYPOINTS))
+                                "Exploring enviroment and building map..."
                         )
                         self._send_nav2_goal()
-                    elif self._current_waypoint_index > len(HARDCODED_WAYPOINTS) and (self._current_waypoint_index < len(self._waypoints)-1):
+                    else:
+                        self.get_logger().info('Mapping Initial Complete!')
 
-                        self._publish_status_log(
-                        "Starting Classification at: P" + str(self._current_waypoint_index - len(HARDCODED_WAYPOINTS))
-                        )
-                        self.classifying_letter = True
-                        self.start_letter_detection_pub.publish(String(data="classify"))
-                        # When starting classification:
-                        self._letter_timeout_timer = self.create_timer(5.0, self._on_letter_timeout)
+                        if self._current_waypoint_index == len(HARDCODED_WAYPOINTS):
+                            self._save_costmap_to_disk()
+                            self.isolate_objects()
 
-                        #classify both object and letter at the same time
-                        self.start_object_detection_pub.publish(String(data="classify"))
-                    elif self._current_waypoint_index == len(self._waypoints)-1:
-                        self._publish_status_log(
-                            "Returning Home..."
-                        )
-                        self._send_nav2_goal()
+                            self._publish_status_log(
+                                "Going to POI P" + str(self._current_waypoint_index - len(HARDCODED_WAYPOINTS))
+                            )
+                            self._send_nav2_goal()
+                        elif self._current_waypoint_index > len(HARDCODED_WAYPOINTS) and (self._current_waypoint_index < len(self._waypoints)-1):
+
+                            self._publish_status_log(
+                            "Starting Classification at: P" + str(self._current_waypoint_index - len(HARDCODED_WAYPOINTS))
+                            )
+                            self.classifying_letter = True
+                            self.start_letter_detection_pub.publish(String(data="classify"))
+                            # When starting classification:
+                            self._letter_timeout_timer = self.create_timer(5.0, self._on_letter_timeout)
+
+                            #classify both object and letter at the same time
+                            self.start_object_detection_pub.publish(String(data="classify"))
+                        elif self._current_waypoint_index == len(self._waypoints)-1:
+                            self._publish_status_log(
+                                "Returning Home..."
+                            )
+                            self._send_nav2_goal()
 
 
             elif status == GoalStatus.STATUS_ABORTED: 
@@ -324,7 +337,44 @@ class GlobalControllerNode(Node):
                 )
 
     def _handle_start_waypoint_route(self, msg: String):
-        pass
+        self.phase = 'phase_2'
+        self._publish_status_log(
+                                "PHASE 2 RECIEVED")
+                            
+                        
+        parsed = json.loads(msg.data) # just to validate it's proper json, will throw if not
+        waypoint_list = [(wp['x'], wp['y'], wp['phi']) for wp in parsed]
+
+
+        if len(waypoint_list) <= 1:
+            return waypoint_list
+
+        def dist(a, b):
+            return math.sqrt((a[0] - b[0])**2 + (a[1] - b[1])**2)
+
+        origin = (0.0, 0.0, 0.0)
+        unvisited = list(waypoint_list)
+        route = [origin]
+        current = origin    
+
+        while unvisited:
+            nearest = min(unvisited, key=lambda wp: dist(current, wp))
+            route.append(nearest)
+            unvisited.remove(nearest)
+            current = nearest
+
+        route.append(origin)
+       
+        for i in route:
+            self._waypoints.append(i)
+
+        self.get_logger().info(f'Received new waypoint route with {len(self._waypoints)} waypoints. Starting route execution.')
+        self._publish_status_log(
+                                "PHASE 2 ROUTE ORDER" + str(route)
+                            )
+                    
+        self.send_nav2_goal()
+    
 
     def _handle_oneshot_retry(self):
         self.retry_timer.cancel()  # Kill it immediately so it only runs once
