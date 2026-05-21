@@ -20,19 +20,15 @@ from vision_msgs.msg import Detection2DArray
 import cv2
 import numpy as np
 import math
+import json
 
 HARDCODED_WAYPOINTS: List[Tuple[float, float, float]] = [
-    (5.0, 0.0, 3.141), 
-    (0.0, 0.0, 3.141), 
-    (-5.0, 0.0, 0.0), 
-    (0.0, 0.0, 3.141)
+    (4.0, 0.0, 0.0), 
+    (8.0, 0.0, 3.141), 
+    (0.0, 0.0, 3.141),
+    (-4.0, 0.0, 0.0), 
+    (0.0, 0.0, 0.0)
 ]
-
-EXPLORE_WAYPOINTS: List[Tuple[float, float, float]] = [
-    (0,0,0)
-]
-
-EXPLORE_WAYPOINTS_FLAG: List[bool] = [False] # parallel list to EXPLORE_WAYPOINTS to indicate if it's been sent to Nav2 yet
 
 CLASSIFIED_WAYPOINTS: List[Tuple[float, float, float, str]] = [
 ]
@@ -70,11 +66,10 @@ class GlobalControllerNode(Node):
 
         #waypoints
         self._waypoints = list(HARDCODED_WAYPOINTS)
-        self._explore_way = list(EXPLORE_WAYPOINTS)
-        self._explore_way_flag = list(EXPLORE_WAYPOINTS_FLAG)
+
         self._state = ControllerState.WAITING
         self._current_waypoint_index = 0
-        self._current_explore_index = 1
+
         self._last_state_log_time = self.get_clock().now()
     
         self._goal_handle = None
@@ -100,16 +95,22 @@ class GlobalControllerNode(Node):
 
         #phase
         self.create_subscription(String, '/phase', self._handle_phase, 10)
-        self.phase = None
+        self.phase = 'phase_1'
 
         #detect letter signal publisher
         self.start_letter_detection_pub = self.create_publisher(String, '/check_label', 10)
         self.letter_detection_sub = self.create_subscription(String, '/camera/letter_detection', self.letter_detection_callback, 10)
         self.last_detected_letter = None
+        self.classifying_letter = False
 
+        
         #object detection signal publisher
         self.start_object_detection_pub = self.create_publisher(String, '/check_object', 10)
         self.object_detection_sub = self.create_subscription(Detection2DArray, '/camera/detections', self.object_detection_callback, 10)
+
+        #waypoint route driving
+        self.start_waypoint_route_sub = self.create_subscription(String, '/waypoint_order', self._handle_start_waypoint_route, 10)
+
 
         # Nav2 Action Client
         self._nav_client = ActionClient(self, NavigateToPose, 'navigate_to_pose')
@@ -127,51 +128,50 @@ class GlobalControllerNode(Node):
             self._publish_status_log(
                 f"Classified object as {msg.detections[0].results[0].hypothesis.class_id}."
             )
-        
-            # TO-DO call bens funciton depnding on the object classification
-            self.start_letter_detection_pub.publish(String(data="classify"))
+            if msg.detections[0].results[0].hypothesis.class_id == 'red trashcan' or msg.detections[0].results[0].hypothesis.class_id == 'yellow trashcan':
+                # self.classifying_letter = True
+                # self.start_letter_detection_pub.publish(String(data="classify"))
+                # # When starting classification:
+                # self._letter_timeout_timer = self.create_timer(5.0, self._on_letter_timeout)
 
+                self._publish_status_log(f"Classified object as {msg.detections[0].results[0].hypothesis.class_id}")
+            else:
+                self.get_logger().info(f"Classified object as {msg.detections[0].results[0].hypothesis.class_id}")
+                self._publish_status_log(f"Classified object as {msg.detections[0].results[0].hypothesis.class_id}")
+        
         else:
-            self.get_logger().info('Object detection callback received no detections.')
+            self.get_logger().info('Object detection callback received NO detections.')
+  
 
     def letter_detection_callback(self, msg: String) -> None:
+        if not self.classifying_letter:
+            return
         self.last_detected_letter = msg.data
         if msg.data in ("nothing detected", "confidence too low", "no frame available"):
             self.start_letter_detection_pub.publish(String(data="classify"))
             return
         else:
-            x = self._explore_way[self._current_explore_index-1][0]
-            y = self._explore_way[self._current_explore_index-1 ][1]
-            phi = self._explore_way[self._current_explore_index-1][2]
+           
+            self.classifying_letter = False
+            #kill timeout timer
+            if self._letter_timeout_timer:
+                self._letter_timeout_timer.cancel()
+                self._letter_timeout_timer = None
+
+            x = self._waypoints[self._current_waypoint_index-1 ][0]
+            y = self._waypoints[self._current_waypoint_index-1][1]
+            phi =  self._waypoints[self._current_waypoint_index-1 ][2]
             CLASSIFIED_WAYPOINTS.append((x, y, phi, self.last_detected_letter))
 
             s = str([{'x': x, 'y': y, 'phi': phi, 'label': label} for x, y, phi, label in CLASSIFIED_WAYPOINTS])
-            self.get_logger().info(f'Publishing classified poi to GUI: {s}')
             self.classified_poi_pub.publish(String(data=s))
             self._publish_status_log(
-                "Classified " + self.last_detected_letter + " at:" + str(self._explore_way[self._current_explore_index-1])
+                "Classified " + self.last_detected_letter + " at:" + str(self._waypoints[self._current_waypoint_index-1])
             )
-
-
-            self.get_logger().info('IMAGE CLASSIFICATION COMPLETE. Detected letter: ' + self.last_detected_letter)
-            self.get_logger().info('IMAGE CLASSIFICATION COMPLETE. Detected letter: ' + self.last_detected_letter)
-            self.get_logger().info('IMAGE CLASSIFICATION COMPLETE. Detected letter: ' + self.last_detected_letter)
-            self.get_logger().info('IMAGE CLASSIFICATION COMPLETE. Detected letter: ' + self.last_detected_letter)
-            self.get_logger().info('IMAGE CLASSIFICATION COMPLETE. Detected letter: ' + self.last_detected_letter)
             self.get_logger().info('IMAGE CLASSIFICATION COMPLETE. Detected letter: ' + self.last_detected_letter)
             self.last_detected_letter = None # reset last detected letter before next classification
 
-
-
             if self._current_waypoint_index < (len(self._waypoints)):
-                self.get_logger().info(" EXPLORE POI:"+str(self._explore_way[self._current_explore_index]))
-                self.get_logger().info(" EXPLORE POI:"+str(self._explore_way[self._current_explore_index]))
-                self.get_logger().info(" EXPLORE POI:"+str(self._explore_way[self._current_explore_index]))
-                self.get_logger().info(" EXPLORE POI:"+str(self._explore_way[self._current_explore_index]))
-                self.get_logger().info(" EXPLORE POI:"+str(self._explore_way[self._current_explore_index]))
-                self.get_logger().info(" EXPLORE POI:"+str(self._explore_way[self._current_explore_index]))
-                self.get_logger().info(" EXPLORE POI:"+str(self._explore_way[self._current_explore_index]))
-                self._current_explore_index += 1
                 self._send_nav2_goal()
 
     def _handle_slave_status(self, msg: String) -> None:
@@ -197,10 +197,6 @@ class GlobalControllerNode(Node):
                 self._transition_to(ControllerState.STOPPED)
             return
 
-        if self._state == ControllerState.TAKING_PICTURE and command == 'picture_done':
-            self._advance_mission()
-            return
-
         # Restart from Stopped
         if self._state == ControllerState.STOPPED and command == 'transition':
             if self._has_waypoints_remaining():
@@ -213,8 +209,17 @@ class GlobalControllerNode(Node):
         self._log_status_heartbeat()
         self._publish_waypoints()
 
+
+    # Timeout handler for letter classification.
+    def _on_letter_timeout(self):
+        self.classifying_letter = False
+        self._letter_timeout_timer.cancel()
+        self._letter_timeout_timer = None
+        self.get_logger().warn('Letter classification timed out, moving on.')
+        self._send_nav2_goal()
+
+
     def _publish_waypoints(self) -> None: # publishes classified waypoints every second
-        # TO DO MOVE THIS TO BENS CLASSIFICATION SCRIPT OCE ITS READY
         
         pass
 
@@ -261,76 +266,65 @@ class GlobalControllerNode(Node):
     
     def _get_result_callback(self, future):
             status = future.result().status
-            
+
             if status == GoalStatus.STATUS_SUCCEEDED:
                 self.get_logger().info('Goal succeeded! Moving to next waypoint.')
-
+                self.get_logger().info('[RESULT][PHASE_1] Entered phase_1 success branch.')
                 self._current_waypoint_index += 1
-                if self._current_waypoint_index < len(self._waypoints):
+                self.get_logger().info(
+                    f'[RESULT][PHASE_1] Incremented waypoint index to {self._current_waypoint_index} (total={len(self._waypoints)}).'
+                )
+                if self._current_waypoint_index < len(HARDCODED_WAYPOINTS):
+                    self.get_logger().info(
+                        f'[RESULT][PHASE_1] More base waypoints remain. Sending next waypoint index {self._current_waypoint_index}.'
+                    )
                     self._publish_status_log(
                             "Exploring enviroment and building map..."
                     )
                     self._send_nav2_goal()
                 else:
                     self.get_logger().info('Mapping Initial Complete!')
-                    #self._transition_to(ControllerState.STOPPED)
-                    #call stuff here
-                    if self._current_explore_index ==1:
+
+                    if self._current_waypoint_index == len(HARDCODED_WAYPOINTS):
                         self._save_costmap_to_disk()
                         self.isolate_objects()
 
-                    if self._current_explore_index < len(self._explore_way):
-                        dist_btw_points = math.sqrt((self._explore_way[self._current_explore_index][0] - self._waypoints[-1][0])**2 + (self._explore_way[self._current_explore_index][1] - self._waypoints[-1][1])**2)
-                        self.get_logger().info(f'Distance from last waypoint to next explore point: {dist_btw_points} meters')
-                        if dist_btw_points > 4.0:
-                            self.get_logger().warn('Next explore point is quite far from last waypoint. Consider adding intermediate waypoints for better navigation.')
-                            interm_x = (self._waypoints[-1][0] + self._explore_way[self._current_explore_index][0]) / 2
-                            interm_y = (self._waypoints[-1][1] + self._explore_way[self._current_explore_index][1]) / 2
-                            delta_x = self._explore_way[self._current_explore_index][0] - self._waypoints[-1][0]
-                            delta_y = self._explore_way[self._current_explore_index][1] - self._waypoints[-1][1]
-                            interm_phi = math.atan2(delta_y, delta_x)
-                            self._waypoints.append((interm_x, interm_y, interm_phi))
-                            self._explore_way_flag.append(False) # intermediate point flag is false
-                            self.get_logger().info(f'Added intermediate waypoint at X={interm_x}, Y={interm_y}, Phi={interm_phi} to bridge gap to explore point.')
-                            self._publish_status_log(
-                            "Going to intermediate waypoint: I" + str(len(self._waypoints)-1) + " on the way to POI P" + str(self._current_explore_index)
-                            )
-
-                        self._waypoints.append(self._explore_way[self._current_explore_index])
-                        self._explore_way_flag.append(True)
                         self._publish_status_log(
-                            "Going to POI P" + str(self._current_explore_index)
+                            "Going to POI P" + str(self._current_waypoint_index - len(HARDCODED_WAYPOINTS))
                         )
+                        self._send_nav2_goal()
+                    elif self._current_waypoint_index > len(HARDCODED_WAYPOINTS) and (self._current_waypoint_index < len(self._waypoints)-1):
 
-                        if self._current_explore_index != 1 and self._explore_way_flag[self._current_explore_index] == True:
-                            #cv detection drive stuff
-                            #TAKE PHOTO HERE
-                            #classified waypoints
-                            self._publish_status_log(
-                            "Starting Classification at: P" + str(self._current_explore_index))
-                            
-                            self.start_object_detection_pub.publish(String(data="classify"))
+                        self._publish_status_log(
+                        "Starting Classification at: P" + str(self._current_waypoint_index - len(HARDCODED_WAYPOINTS))
+                        )
+                        self.classifying_letter = True
+                        self.start_letter_detection_pub.publish(String(data="classify"))
+                        # When starting classification:
+                        self._letter_timeout_timer = self.create_timer(5.0, self._on_letter_timeout)
 
-                        
-                        if self._current_explore_index == 1:
-                            # self._current_explore_index += 1
-                            self._send_nav2_goal()
-                            self._current_explore_index += 1
+                        #classify both object and letter at the same time
+                        self.start_object_detection_pub.publish(String(data="classify"))
+                    elif self._current_waypoint_index == len(self._waypoints)-1:
+                        self._publish_status_log(
+                            "Returning Home..."
+                        )
+                        self._send_nav2_goal()
 
-
-                        #self._current_waypoint_index += 1
-
-                        
-                           
 
             elif status == GoalStatus.STATUS_ABORTED: 
-                self.get_logger().warn('Nav2 Aborted (Status 6). Likely a CPU/Timeout spike. Retrying...')
+                self.get_logger().warn('NAV2 HISSY FIT TRANSFORM TREE/CPU/MAP/SOMETHING ELSE IDK WHY THEY PUT SO MANY THINGS IN STATUS 6')
                 # DO NOT transition to WAITING. 
                 # Use a timer to retry so we don't spam the server instantly
                 self.retry_timer = self.create_timer(2.0, self._handle_oneshot_retry)                
             else:
                 # For other failures (Canceled, etc.), now we can halt
-                self.get_logger().info(f'waiting for classification')
+                self.get_logger().info(
+                    f'[RESULT] Non-success status={status}. Current phase={self.phase}. Waiting for classification or retry trigger.'
+                )
+
+    def _handle_start_waypoint_route(self, msg: String):
+        pass
 
     def _handle_oneshot_retry(self):
         self.retry_timer.cancel()  # Kill it immediately so it only runs once
@@ -340,27 +334,17 @@ class GlobalControllerNode(Node):
         """Helper to resend the goal without resetting the mission."""
         self.get_logger().info(f'Retrying waypoint {self._current_waypoint_index + 1}...')
         self._send_nav2_goal()
-
+    
     def _cancel_current_nav_goal(self) -> None:
         if self._goal_handle is not None:
             self.get_logger().info('Canceling current Nav2 goal execution.')
             self._goal_handle.cancel_goal_async()
             self._goal_handle = None
 
-    def _advance_mission(self) -> None:
-        self._current_waypoint_index += 1
-
-        if self._has_waypoints_remaining():
-            self.get_logger().info(f'Advancing to next waypoint (Index {self._current_waypoint_index})')
-            self._transition_to(ControllerState.DRIVING)
-            self._send_nav2_goal()
-        else:
-            self.get_logger().info('Mission Complete. All waypoints reached.')
-            self._transition_to(ControllerState.STOPPED)
-        
     def _transition_to(self, new_state: ControllerState) -> None:
         if self._state == new_state:
             return
+            
         old_state = self._state
         self._state = new_state
         self.get_logger().info(f'State transition: {old_state.value} -> {new_state.value}')
@@ -399,15 +383,8 @@ class GlobalControllerNode(Node):
         
     def _handle_phase(self, msg: String) -> None:
         self.phase = msg.data
-        # if self.phase == 'phase_2' and self.objects_isolated == False:
-        #     self.objects_isolated = True
-        #     self.isolate_objects()
         self.get_logger().info(f'Received phase update: {self.phase}')
 
-        if self.phase == 'phase_2':
-            self.get_logger().info('Phase 2 detected. Starting object isolation.')
-            self._save_costmap_to_disk()
-            self.isolate_objects()
 
     def _save_costmap_to_disk(self) -> None:
         if self.costmap_data is None:
@@ -463,7 +440,7 @@ class GlobalControllerNode(Node):
 
 
 
-        _, binary_before = cv2.threshold(occupied, 250, 255, cv2.THRESH_BINARY)
+        _, binary_before = cv2.threshold(img, 250, 255, cv2.THRESH_BINARY)
 
          # Remove isolated single pixels before dilation
         num_labels_clean, labels_clean, stats_clean, _ = cv2.connectedComponentsWithStats(binary_before, connectivity=8)
@@ -471,9 +448,7 @@ class GlobalControllerNode(Node):
             if stats_clean[i, cv2.CC_STAT_AREA] == 1:
                 binary_before[labels_clean == i] = 0
 
-        # kernel = np.ones((3, 3), np.uint8)
-        # binary_after = cv2.dilate(binary_before, kernel, iterations=1)
-       
+    
         num_labels, labels, stats, centroids = cv2.connectedComponentsWithStats(binary_before, connectivity=8)
 
         object_positions = []
@@ -501,14 +476,18 @@ class GlobalControllerNode(Node):
 
         for i in object_positions:
             angle_calc = round(math.atan2(i[1], i[0]),2)
-            new_x = round(i[0] - 1.0 * math.cos(angle_calc),2)
-            new_y = round(i[1] - 1.0 * math.sin(angle_calc),2)
-            self._explore_way.append((new_x, new_y, angle_calc))
-
-
+            new_x = round(i[0] - 2.0 * math.cos(angle_calc),2)
+            new_y = round(i[1] - 2.0 * math.sin(angle_calc),2)
+            self._waypoints.append((new_x, new_y, angle_calc))
+        self._waypoints.append((0.0, 0.0, 0.0)) # add home position as final waypoint after all objects isolated
+        self._publish_status_log(
+            "Objects Isolated Complete"
+        )
         s = str([{'x': x, 'y': y, 'phi': phi} for x, y, phi in object_positions])
         self.get_logger().info(f'publishing isolated objects: {s}')
         self.poi_pub.publish(String(data=s))
+
+
 
 
 def main(args=None) -> None:

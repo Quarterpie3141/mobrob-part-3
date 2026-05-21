@@ -7,8 +7,13 @@ const ctx = canvas.getContext('2d');
 
 let robotPose = { x: 0, y: 0, theta: 0 };
 let currentGoal = null;
-let pois = [];  // Array of { x, y, phi }
-let classifiedPois = []; // Array of { x, y, phi, class }
+let pois = [];                // Array of { x, y, phi }
+let classifiedPois = [];      // Array of { x, y, phi, label }  -- letters
+let objectPois = [];          // Array of { x, y, phi, label }  -- objects
+const poiImages = {};         // letter label -> base64 jpeg
+const objectImages = {};      // object label -> base64 jpeg
+let costmap = null;
+
 const SCALE = 20;
 const trail = [];
 const MAX_TRAIL = 200;
@@ -27,7 +32,6 @@ socket.on('connect', () => {
 
 socket.on('costmap', (data) => {
   costmap = data;
-  // 'data' field arrives as ArrayBuffer because we sent raw bytes
   const cells = new Int8Array(data.data);
   buildCostmapImage(cells, data.width, data.height);
   drawMinimap();
@@ -93,6 +97,26 @@ socket.on('classified_poi_update', (data) => {
   }
 });
 
+socket.on('poi_image', (data) => {
+  poiImages[data.label] = data.image;
+});
+
+// Object detections
+socket.on('object_poi_update', (data) => {
+  try {
+    const fixed = data.object_poi.replace(/'/g, '"');
+    objectPois = JSON.parse(fixed);
+    addLog(`Object detections updated: ${objectPois.length} object(s)`, 'info');
+    drawMinimap();
+  } catch (e) {
+    console.error('Failed to parse object POIs:', e);
+  }
+});
+
+socket.on('object_image', (data) => {
+  objectImages[data.label] = data.image;
+});
+
 // ---------- Phase Switch ----------
 document.querySelectorAll('.phase-btn').forEach((btn) => {
   btn.addEventListener('click', () => {
@@ -121,6 +145,68 @@ pauseBtn.addEventListener('click', () => {
   socket.emit('toggle_pause');
 });
 
+// ---------- Hover / Click on minimap POIs ----------
+function poiToCanvas(poi) {
+  const { resolution, origin_x, origin_y, width: cw, height: ch } = costmap;
+  const ppx = ((poi.x - origin_x) / resolution / cw) * canvas.width;
+  const ppy = canvas.height - ((poi.y - origin_y) / resolution / ch) * canvas.height;
+  return { ppx, ppy };
+}
+
+canvas.addEventListener('mousemove', (e) => {
+  if (!costmap) { canvas.style.cursor = 'default'; return; }
+  const rect = canvas.getBoundingClientRect();
+  const mx = (e.clientX - rect.left) * (canvas.width / rect.width);
+  const my = (e.clientY - rect.top) * (canvas.height / rect.height);
+
+  const hit = (poi) => {
+    const { ppx, ppy } = poiToCanvas(poi);
+    return Math.hypot(mx - ppx, my - ppy) < 12;
+  };
+
+  const hover = classifiedPois.some(hit) || objectPois.some(hit);
+  canvas.style.cursor = hover ? 'pointer' : 'default';
+});
+
+canvas.addEventListener('click', (e) => {
+  if (!costmap) return;
+  const rect = canvas.getBoundingClientRect();
+  const clickX = (e.clientX - rect.left) * (canvas.width / rect.width);
+  const clickY = (e.clientY - rect.top) * (canvas.height / rect.height);
+
+  const hit = (poi) => {
+    const { ppx, ppy } = poiToCanvas(poi);
+    return Math.hypot(clickX - ppx, clickY - ppy) < 12;
+  };
+
+  for (const poi of classifiedPois) {
+    if (hit(poi)) { showPoiPopup(poi, 'letter'); return; }
+  }
+  for (const poi of objectPois) {
+    if (hit(poi)) { showPoiPopup(poi, 'object'); return; }
+  }
+});
+
+function showPoiPopup(poi, kind) {
+  const modal  = document.getElementById('poi-modal');
+  const img    = document.getElementById('modal-image');
+  const label  = document.getElementById('modal-label');
+  const coords = document.getElementById('modal-coords');
+
+  const prefix = kind === 'object' ? 'OBJECT' : 'LETTER';
+  label.textContent = `${prefix}: ${poi.label}`;
+  coords.textContent = `x: ${poi.x.toFixed(2)}  y: ${poi.y.toFixed(2)}  φ: ${poi.phi.toFixed(2)}`;
+
+  const b64 = kind === 'object' ? objectImages[poi.label] : poiImages[poi.label];
+  img.src = b64 ? `data:image/jpeg;base64,${b64}` : '';
+  img.style.display = b64 ? 'block' : 'none';
+  modal.classList.remove('hidden');
+}
+
+document.getElementById('modal-close').addEventListener('click', () => {
+  document.getElementById('poi-modal').classList.add('hidden');
+});
+
 function updatePauseButton() {
   if (isPaused) {
     pauseBtn.textContent = '▶ RESUME';
@@ -133,7 +219,6 @@ function updatePauseButton() {
 
 // ---------- Waypoints ----------
 function renderWaypoints() {
-  // Available
   const availEl = document.getElementById('available-waypoints');
   availEl.innerHTML = '';
   availableWaypoints.forEach((wp) => {
@@ -150,7 +235,6 @@ function renderWaypoints() {
     availEl.appendChild(chip);
   });
 
-  // Selected (ordered)
   const selEl = document.getElementById('selected-waypoints');
   selEl.innerHTML = '';
   if (selectedSequence.length === 0) {
@@ -193,7 +277,28 @@ document.getElementById('send-waypoints').addEventListener('click', () => {
     addLog('Select at least one waypoint first', 'warning');
     return;
   }
-  socket.emit('send_waypoints', { sequence: selectedSequence });
+
+  // Map waypoint names -> [x, y, phi] from classified POIs
+  const coords = [];
+  const missing = [];
+  for (const wp of selectedSequence) {
+    const poi = classifiedPois.find(p => p.label === wp);
+    if (poi) {
+      coords.push([poi.x, poi.y, poi.phi]);
+    } else {
+      missing.push(wp);
+    }
+  }
+
+  if (missing.length > 0) {
+    addLog(`No classified POI found for: ${missing.join(', ')}`, 'error');
+    return;
+  }
+
+  socket.emit('send_waypoints', {
+    sequence: selectedSequence,
+    coordinates: coords,
+  });
 });
 
 document.getElementById('clear-waypoints').addEventListener('click', () => {
@@ -217,9 +322,7 @@ function addLog(message, level = 'info') {
 }
 
 // ---------- Minimap ----------
-
 function buildCostmapImage(cells, w, h) {
-  // Pre-render the costmap into an offscreen canvas for fast blitting
   const offscreen = document.createElement('canvas');
   offscreen.width = w;
   offscreen.height = h;
@@ -230,24 +333,18 @@ function buildCostmapImage(cells, w, h) {
     const v = cells[i];
     let r, g, b, a;
     if (v < 0) {
-      // Unknown - dark gray
       r = g = b = 40; a = 255;
     } else if (v === 0) {
-      // Free - black
       r = g = b = 0; a = 255;
     } else if (v >= 100) {
-      // Occupied - pure white
       r = g = b = 255; a = 255;
     } else {
-      // Cost gradient - black to white
       const c = Math.round((v / 100) * 255);
       r = g = b = c; a = 255;
     }
 
-    // OccupancyGrid is stored row-major, bottom-up in ROS convention
-    // We need to flip vertically when drawing
     const px = i % w;
-    const py = h - 1 - Math.floor(i / w);  // flip Y
+    const py = h - 1 - Math.floor(i / w);
     const idx = (py * w + px) * 4;
     img.data[idx]     = r;
     img.data[idx + 1] = g;
@@ -259,6 +356,21 @@ function buildCostmapImage(cells, w, h) {
   costmapImage = offscreen;
 }
 
+function drawTriangle(ppx, ppy, color, label) {
+  ctx.fillStyle = color;
+  ctx.beginPath();
+  ctx.moveTo(ppx, ppy - 6);
+  ctx.lineTo(ppx - 5, ppy + 4);
+  ctx.lineTo(ppx + 5, ppy + 4);
+  ctx.closePath();
+  ctx.fill();
+
+  ctx.fillStyle = color;
+  ctx.font = 'bold 10px monospace';
+  ctx.textAlign = 'left';
+  ctx.fillText(label, ppx + 10, ppy + 4);
+}
+
 function drawMinimap() {
   const w = canvas.width, h = canvas.height;
   ctx.fillStyle = '#000';
@@ -268,31 +380,27 @@ function drawMinimap() {
     ctx.imageSmoothingEnabled = false;
     ctx.drawImage(costmapImage, 0, 0, w, h);
 
-    // render occupancy map
     const { resolution, origin_x, origin_y, width: cw, height: ch } = costmap;
 
-    //render pois
+    // render raw pois (blue circles)
     if (pois.length > 0) {
       pois.forEach((poi, idx) => {
         const pCellX = (poi.x - origin_x) / resolution;
         const pCellY = (poi.y - origin_y) / resolution;
         const ppx = (pCellX / cw) * w;
         const ppy = h - (pCellY / ch) * h;
-      
-        // outer ring
+
         ctx.strokeStyle = '#5E81E0';
         ctx.lineWidth = 2;
         ctx.beginPath();
         ctx.arc(ppx, ppy, 8, 0, Math.PI * 2);
         ctx.stroke();
-      
-        // inner dot
+
         ctx.fillStyle = '#D25C76';
         ctx.beginPath();
         ctx.arc(ppx, ppy, 1.5, 0, Math.PI * 2);
         ctx.fill();
-      
-        // label
+
         ctx.fillStyle = '#D25C76';
         ctx.font = 'bold 10px monospace';
         ctx.textAlign = 'left';
@@ -300,38 +408,31 @@ function drawMinimap() {
       });
     }
 
-    if (classifiedPois.length > 0) {
-      classifiedPois.forEach((poi, idx) => {
-        const pCellX = (poi.x - origin_x) / resolution;
-        const pCellY = (poi.y - origin_y) / resolution;
-        const ppx = (pCellX / cw) * w;
-        const ppy = h - (pCellY / ch) * h;
+    // letter detections - green triangles
+    classifiedPois.forEach((poi) => {
+      const pCellX = (poi.x - origin_x) / resolution;
+      const pCellY = (poi.y - origin_y) / resolution;
+      const ppx = (pCellX / cw) * w;
+      const ppy = h - (pCellY / ch) * h;
+      drawTriangle(ppx, ppy, '#83ff83', poi.label);
+    });
 
-        // green tirangle 
-        ctx.fillStyle = '#83ff83';
-        ctx.beginPath();
-        ctx.moveTo(ppx, ppy - 6); // Top point of triangle
-        ctx.lineTo(ppx - 5, ppy + 4); // Bottom left
-        ctx.lineTo(ppx + 5, ppy + 4); // Bottom right
-        ctx.closePath();
-        ctx.fill();
+    // object detections - red triangles
+    objectPois.forEach((poi) => {
+      const pCellX = (poi.x - origin_x) / resolution;
+      const pCellY = (poi.y - origin_y) / resolution;
+      const ppx = (pCellX / cw) * w;
+      const ppy = h - (pCellY / ch) * h;
+      drawTriangle(ppx, ppy, '#ff6b6b', poi.label);
+    });
 
-        // Label
-        ctx.fillStyle = '#83ff83';
-        ctx.font = 'bold 10px monospace';
-        ctx.textAlign = 'left';
-        ctx.fillText(`${poi.label}`, ppx + 10, ppy + 4);
-      });
-    }
-
-    // render current goal
+    // current goal
     if (currentGoal) {
       const gCellX = (currentGoal.x - origin_x) / resolution;
       const gCellY = (currentGoal.y - origin_y) / resolution;
       const gx = (gCellX / cw) * w;
       const gy = h - (gCellY / ch) * h;
 
-      // crosshair
       ctx.strokeStyle = '#F6D768';
       ctx.lineWidth = 1;
       ctx.setLineDash([3, 3]);
@@ -341,7 +442,6 @@ function drawMinimap() {
       ctx.stroke();
       ctx.setLineDash([]);
 
-      // goal heading
       ctx.strokeStyle = '#D25C76';
       ctx.lineWidth = 2;
       ctx.beginPath();
@@ -350,23 +450,20 @@ function drawMinimap() {
                  gy - Math.sin(currentGoal.phi) * 18);
       ctx.stroke();
 
-      // ah
       ctx.strokeRect(gx - 6, gy - 6, 12, 12);
 
-      // goal label
       ctx.fillStyle = '#F6D768';
       ctx.font = 'bold 11px monospace';
       ctx.textAlign = 'left';
       ctx.fillText('GOAL', gx + 10, gy - 10);
     }
 
-    // robots current pose 
+    // robot pose
     const cellX = (robotPose.x - origin_x) / resolution;
     const cellY = (robotPose.y - origin_y) / resolution;
     const px = (cellX / cw) * w;
     const py = h - (cellY / ch) * h;
 
-    // heading arrow
     ctx.strokeStyle = '#D25C76';
     ctx.lineWidth = 2;
     ctx.beginPath();
@@ -375,7 +472,6 @@ function drawMinimap() {
                py - Math.sin(robotPose.theta) * 15);
     ctx.stroke();
 
-    // robot square
     ctx.fillStyle = '#5E81E0';
     ctx.fillRect(px - 4, py - 4, 8, 8);
     ctx.strokeStyle = '#000';
@@ -395,8 +491,8 @@ function drawMinimap() {
       ctx.beginPath();
       ctx.moveTo(px, py);
       ctx.lineTo(gx, gy);
-      ctx.stroke();
       ctx.setLineDash([]);
+      ctx.stroke();
     }
 
   } else {
@@ -406,5 +502,6 @@ function drawMinimap() {
     ctx.fillText('// AWAITING COSTMAP', w / 2, h / 2);
   }
 }
+
 drawMinimap();
 renderWaypoints();

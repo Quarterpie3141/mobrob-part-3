@@ -11,11 +11,6 @@ setup(
         ('share/ament_index/resource_index/packages',
         ['resource/' + package_name]),
         ('share/' + package_name, ['package.xml'])
-        # (
-        #     # os.path.join("share/" + package_name, "launch"),
-        #   #  [os.path.join("launch", "depth_ai_launch.py")],
-        # ),
-        # (os.path.join("share/" + package_name), ['resource/stop_data.xml']),
     ],
     install_requires=['setuptools'],
     zip_safe=True,

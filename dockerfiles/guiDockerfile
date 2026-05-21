@@ -14,6 +14,10 @@ RUN apt-get update && apt-get install -y \
     python3-venv \
     && rm -rf /var/lib/apt/lists/*
 
+#cv_bridge
+RUN apt update && apt install ros-jazzy-cv-bridge -y
+RUN apt update && apt install ros-jazzy-vision-msgs -y
+
 RUN rm -rf /var/lib/apt/lists/* /tmp/ros2-apt-source.deb
 
 RUN echo "source /opt/ros/jazzy/setup.bash" >> ~/.bashrc
@@ -26,8 +30,10 @@ COPY ros2ws/src/gui /opt/ros2ws/src/gui
 
 SHELL ["/bin/bash", "-c"]
 
-RUN pip install flask flask-socketio eventlet flask-cors \
-    --break-system-packages --ignore-installed blinker
+RUN pip install flask flask-socketio eventlet flask-cors opencv-python \ 
+    "numpy<2" --break-system-packages --ignore-installed blinker
+
+#RUN pip3 install --break-system-packages "numpy<2"
 
 RUN source /opt/ros/jazzy/setup.bash && colcon build --packages-select gui gui
 
@@ -39,4 +45,4 @@ ENV ROS_DOMAIN_ID=8
 # Document that the container uses port 5000 (informational only with host networking)
 EXPOSE 5000
 
-CMD ["bash", "-lc", "source /opt/ros/jazzy/setup.bash && source /opt/ros2ws/install/setup.bash && ros2 launch gui gui_launch.py && ros2 launch foxglove_bridge foxglove_bridge_launch.xml"]
+CMD ["bash", "-lc", "source /opt/ros/jazzy/setup.bash && source /opt/ros2ws/install/setup.bash && ros2 launch gui gui_launch.py"]
