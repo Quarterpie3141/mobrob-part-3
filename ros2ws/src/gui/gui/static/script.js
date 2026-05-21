@@ -6,7 +6,7 @@ const canvas = document.getElementById('minimap');
 const ctx = canvas.getContext('2d');
 const scrub      = document.getElementById('replay-scrub');
 const posLabel   = document.getElementById('replay-pos');
-const toggleBtn  = document.getElementById('replay-toggle');s
+const toggleBtn  = document.getElementById('replay-toggle');
 const playBtn    = document.getElementById('replay-play');
 const speedSel   = document.getElementById('replay-speed');
 
