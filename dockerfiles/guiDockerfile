@@ -30,7 +30,7 @@ COPY ros2ws/src/gui /opt/ros2ws/src/gui
 
 SHELL ["/bin/bash", "-c"]
 
-RUN pip install flask flask-socketio eventlet flask-cors opencv-python \
+RUN pip install flask flask-socketio eventlet flask-cors opencv-python numpy<2 \ 
     --break-system-packages --ignore-installed blinker
 
 RUN source /opt/ros/jazzy/setup.bash && colcon build --packages-select gui gui
