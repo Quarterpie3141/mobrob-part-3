@@ -277,7 +277,7 @@ class GlobalControllerNode(Node):
                             "PHASE2" + str(self._waypoints[self.current_waypoint_index])
                         )
                     
-                        self.send_nav2_goal()
+                        self._send_nav2_goal()
 
                 else: 
 
@@ -343,7 +343,7 @@ class GlobalControllerNode(Node):
                             
                         
         parsed = json.loads(msg.data) # just to validate it's proper json, will throw if not
-        waypoint_list = [(wp['x'], wp['y'], wp['phi']) for wp in parsed]
+        waypoint_list = [(wp[0], wp[1], wp[2]) for wp in parsed]
 
 
         if len(waypoint_list) <= 1:
@@ -373,7 +373,7 @@ class GlobalControllerNode(Node):
                                 "PHASE 2 ROUTE ORDER" + str(route)
                             )
                     
-        self.send_nav2_goal()
+        self._send_nav2_goal()
     
 
     def _handle_oneshot_retry(self):
