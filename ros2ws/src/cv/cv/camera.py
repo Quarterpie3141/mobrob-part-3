@@ -54,7 +54,7 @@ class DepthAICameraNode(Node):
         self.total_yaw = 0.0
         self.yaw_initialised = False
         #END TESTING STUFF
-        weights = os.path.join(self.modeldir, "part3v2.pt")
+        weights = os.path.join(self.modeldir, "objects.pt")
         self.model = ultralytics.YOLO(weights)
         self.label_map = self.model.names
 
