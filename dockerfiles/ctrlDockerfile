@@ -1,0 +1,32 @@
+FROM ubuntu:24.04
+
+RUN apt-get update && apt-get install -y software-properties-common curl
+
+RUN add-apt-repository universe
+RUN curl -L -o /tmp/ros2-apt-source.deb "https://github.com/ros-infrastructure/ros-apt-source/releases/download/1.1.0/ros2-apt-source_1.1.0.$(. /etc/os-release && echo ${UBUNTU_CODENAME:-${VERSION_CODENAME}})_all.deb"
+RUN dpkg -i /tmp/ros2-apt-source.deb
+
+RUN apt-get update
+
+RUN apt-get install ros-jazzy-ros-base ros-jazzy-rmw-cyclonedds-cpp ros-jazzy-joy python3-colcon-common-extensions -y
+
+RUN rm -rf /var/lib/apt/lists/* /tmp/ros2-apt-source.deb
+
+RUN echo "source /opt/ros/jazzy/setup.bash" >> ~/.bashrc
+
+# Setup a minimal workspace that only contains the control_joy package.
+WORKDIR /opt/ros2ws
+RUN mkdir -p /opt/ros2ws/src
+
+COPY ros2ws/src/control_joy /opt/ros2ws/src/control_joy
+SHELL ["/bin/bash", "-c"]
+RUN source /opt/ros/jazzy/setup.bash && colcon build --packages-select control_joy
+
+RUN echo "source /opt/ros2ws/install/setup.bash" >> ~/.bashrc
+
+ENV DEBIAN_FRONTEND=noninteractive
+ENV ROS_DOMAIN_ID=8
+ENV RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
+ENV CYCLONEDDS_URI="<CycloneDDS><Domain><General><Interfaces><NetworkInterface name=\"wlp0s20f3\"/></Interfaces></General></Domain></CycloneDDS>"
+
+CMD ["bash", "-lc", "source /opt/ros/jazzy/setup.bash && source /opt/ros2ws/install/setup.bash && ros2 launch control_joy joy.launch.py"]

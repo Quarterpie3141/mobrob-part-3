@@ -1,0 +1,39 @@
+slam_toolbox:
+  ros__parameters:
+    odom_frame: odom
+    map_frame: map
+    base_frame: base_link
+    scan_topic: /scan
+    mode: mapping
+    use_sim_time: false
+    
+    # Laser configuration
+    max_laser_range: 25.0
+    resolution: 0.05
+    transform_publish_period: 0.05
+    transform_timeout: 0.1
+    
+    # Travel thresholds for map updates
+    minimum_travel_distance: 0.3
+    minimum_travel_heading: 0.3
+    map_update_interval: 2.0
+    
+    # Occupancy grid parameters to prevent ghosting
+    occupied_covariance_threshold: 0.65
+    free_covariance_threshold: 0.196
+    
+    # Loop closure parameters - reduce aggressiveness
+    loop_search_maximum_distance: 3.0
+    do_loop_closing: true
+    loop_matching_minimum_chain_size: 5
+    
+    # Scoring thresholds - prevent spurious loop closures
+    correlation_score_threshold: 0.3
+    
+    # Scan matching
+    use_scan_matching: true
+    use_scan_bagging: true
+    num_background_trees: 8
+    
+    # Disable map spit to prevent issues
+    map_mode: false

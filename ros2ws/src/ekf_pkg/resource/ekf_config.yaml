@@ -1,0 +1,27 @@
+/**:
+    ros__parameters:
+        frequency: 30.0
+        sensor_timeout: 0.1
+        two_d_mode: true
+        publish_tf: true
+
+        odom_frame: odom
+        map_frame: map
+        base_link_frame: base_link
+        world_frame: odom
+
+        odom0: /odom/wheels
+        odom0_config: [false, false, false,
+                       false, false, false,
+                       true,  true,  false,
+                       false, false, true,
+                       false, false, false]
+        odom0_relative: true
+
+        imu0: imu/data
+        imu0_config: [false, false, false,
+                      false, false, true, #try false next run
+                      false, false, false,
+                      false, false, true,
+                      true, false, false]
+        imu0_relative: true
