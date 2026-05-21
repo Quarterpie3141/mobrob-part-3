@@ -65,13 +65,13 @@ class DepthAICameraNode(Node):
             - Stores the latest camera frame
             - Runs YOLO inference every 3rd frame
             - Publishes all detections as a Detection2DArray
+            - Determines if detected object is red or yellow via average hue
             """
             if not hasattr(self, 'framecount'):
                 self.framecount = 0
 
             self.framecount += 1
 
-            # only process every 3rd frame
             if self.framecount % 3 != 0:
                 return
 
@@ -93,6 +93,9 @@ class DepthAICameraNode(Node):
             detection_array_msg.header.stamp = time_now
             detection_array_msg.header.frame_id = "camera_link"
 
+            # convert to HSV once for all detections
+            hsv_frame = cv2.cvtColor(self.frame, cv2.COLOR_BGR2HSV)
+
             for result in self.results:
 
                 if result.boxes is None:
@@ -110,9 +113,42 @@ class DepthAICameraNode(Node):
                     width = x2 - x1
                     height = y2 - y1
 
-                    # optional filtering
                     if width * height < self.min_box_area:
                         continue
+
+                    # --- hue-based color classification ---
+                    roi_hsv = hsv_frame[y1:y2, x1:x2]
+
+                    if roi_hsv.size > 0:
+                        hue_channel = roi_hsv[:, :, 0]  # H is 0-179 in OpenCV
+                        sat_channel = roi_hsv[:, :, 1]
+
+                        # mask out low-saturation pixels (grays/whites/blacks)
+                        sat_mask = sat_channel > 50
+
+                        if sat_mask.any():
+                            hues = hue_channel[sat_mask]
+
+                            # red wraps around 0/180, so shift hues into
+                            # a continuous space centered on 90 before averaging
+                            shifted = (hues.astype(int) + 90) % 180
+                            avg_shifted = shifted.mean()
+                            avg_hue = (avg_shifted - 90) % 180
+                        else:
+                            avg_hue = hue_channel.mean()
+
+                        # classify: red hue wraps around 0
+                        #   red:    H < 10  or  H > 160
+                        #   yellow: 15 <= H <= 35
+                        if avg_hue < 10 or avg_hue > 160:
+                            detected_color = "red"
+                        elif 15 <= avg_hue <= 35:
+                            detected_color = "yellow"
+                        else:
+                            detected_color = "unknown"
+                    else:
+                        detected_color = "unknown"
+                    # --- end color classification ---
 
                     detection = Detection2D()
 
@@ -142,32 +178,40 @@ class DepthAICameraNode(Node):
 
                     hypothesis = ObjectHypothesisWithPose()
 
-                    hypothesis.hypothesis.class_id = classification
+                    # append color to the class label
+                    hypothesis.hypothesis.class_id = detected_color
                     hypothesis.hypothesis.score = confidence
 
                     detection.results.append(hypothesis)
 
                     detection_array_msg.detections.append(detection)
 
+                    # pick annotation color based on detected hue
+                    if detected_color == "red":
+                        box_color = (0, 0, 255)
+                    elif detected_color == "yellow":
+                        box_color = (0, 255, 255)
+                    else:
+                        box_color = (0, 255, 0)
+
                     cv2.rectangle(
                         self.frame,
                         (x1, y1),
                         (x2, y2),
-                        (0, 255, 0),
+                        box_color,
                         2
                     )
 
                     cv2.putText(
                         self.frame,
-                        f"{classification}: {confidence:.2f}",
+                        f"{classification} ({detected_color}): {confidence:.2f}",
                         (x1, y1 - 10),
                         cv2.FONT_HERSHEY_SIMPLEX,
                         0.6,
-                        (0, 255, 0),
+                        box_color,
                         2
                     )
 
-            #publish all detections while not in searching mode
             self.detection_pub.publish(detection_array_msg)
 
             detection_img_msg = self.bridge.cv2_to_imgmsg(
