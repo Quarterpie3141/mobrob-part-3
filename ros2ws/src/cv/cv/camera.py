@@ -56,132 +56,188 @@ class DepthAICameraNode(Node):
         self.total_yaw = 0.0
         self.yaw_initialised = False
         #END TESTING STUFF
-        weights = os.path.join(self.modeldir, "part3v2.pt")
+        weights = os.path.join(self.modeldir, "objects.pt")
         self.model = ultralytics.YOLO(weights)
         self.label_map = self.model.names
 
+
+    def trigger_callback(self, msg):
+        if not self.camera_ready:
+            self.get_logger().warn(
+                "Trigger received but camera not yet initialised, ignoring"
+            )
+            return
+
+        self.taking_picture = True
+        self.get_logger().info(
+            "Received trigger to take picture, entering search mode"
+        )
+
     def cam_sub_callback(self, msg):
-        if self.taking_picture:
-            """
-            - Camera subscriber callback.
-            - Stores the latest camera frame
+        """
+        Camera subscriber callback.
+        When triggered (taking_picture == True):
             - Runs YOLO inference every 3rd frame
-            - Publishes all detections as a Detection2DArray
-            """
-            if not hasattr(self, 'framecount'):
-                self.framecount = 0
+            - Filters detections by bounding box area and red/yellow colour ratio
+            - Publishes filtered detections as a Detection2DArray
+            - Publishes annotated image with bounding boxes
+            - Resets taking_picture flag after processing
+        """
+        if not self.taking_picture:
+            return
 
-            self.framecount += 1
+        self.framecount += 1
 
-            # only process every 3rd frame 10fps
-            if self.framecount % 3 != 0:
+        # Only process every 3rd frame to reduce load
+        if self.framecount % 3 != 0:
+            return
+
+        # Convert ROS image message to OpenCV BGR format
+        self.frame = self.bridge.imgmsg_to_cv2(
+            msg,
+            desired_encoding='bgr8'
+        )
+
+        # Update camera_ready flag on first valid frame
+        if not self.camera_ready:
+            if self.check_camera_ready():
+                self.camera_ready = True
+                self.get_logger().info("Camera initialised successfully")
+            else:
                 return
 
-            self.frame = self.bridge.imgmsg_to_cv2(
-                msg,
-                desired_encoding='bgr8'
-            )
+        # Run YOLO inference with 70% confidence threshold
+        self.results = self.model.predict(
+            self.frame,
+            conf=0.7,
+            verbose=False
+        )
 
-            self.results = self.model.predict(
-                self.frame,
-                conf=0.7,
-                verbose=False
-            )
+        # Build detection array message
+        detection_array_msg = Detection2DArray()
+        time_now = self.get_clock().now().to_msg()
+        detection_array_msg.header.stamp = time_now
+        detection_array_msg.header.frame_id = "camera_link"
 
-            detection_array_msg = Detection2DArray()
+        for result in self.results:
+            if result.boxes is None:
+                continue
 
-            time_now = self.get_clock().now().to_msg()
+            for box in result.boxes:
+                # Extract bounding box coordinates
+                x1, y1, x2, y2 = (
+                    box.xyxy[0]
+                        .cpu()
+                        .numpy()
+                        .astype(int)
+                )
 
-            detection_array_msg.header.stamp = time_now
-            detection_array_msg.header.frame_id = "camera_link"
+                width = x2 - x1
+                height = y2 - y1
 
-            for result in self.results:
-
-                if result.boxes is None:
+                # Filter out small detections
+                if width * height < self.min_box_area:
                     continue
 
-                for box in result.boxes:
+                # Extract ROI for colour filtering
+                roi = self.frame[y1:y2, x1:x2]
 
-                    x1, y1, x2, y2 = (
-                        box.xyxy[0]
-                            .cpu()
-                            .numpy()
-                            .astype(int)
+                if roi.size == 0:
+                    continue
+
+                # Convert ROI to HSV for colour check
+                hsv_roi = cv2.cvtColor(roi, cv2.COLOR_BGR2HSV)
+
+                # Yellow HSV range
+                lower_yellow = (20, 100, 100)
+                upper_yellow = (35, 255, 255)
+
+                # Red HSV range (wraps around 0/180)
+                lower_red1 = (0, 100, 100)
+                upper_red1 = (10, 255, 255)
+                lower_red2 = (170, 100, 100)
+                upper_red2 = (180, 255, 255)
+
+                # Create colour masks
+                mask_yellow = cv2.inRange(hsv_roi, lower_yellow, upper_yellow)
+                mask_red1 = cv2.inRange(hsv_roi, lower_red1, upper_red1)
+                mask_red2 = cv2.inRange(hsv_roi, lower_red2, upper_red2)
+
+                mask_red = cv2.bitwise_or(mask_red1, mask_red2)
+                mask = cv2.bitwise_or(mask_red, mask_yellow)
+
+                # Compute ratio of red/yellow pixels in the bounding box
+                color_ratio = cv2.countNonZero(mask) / (width * height)
+
+                # Reject detections without enough red/yellow colour
+                if color_ratio < 0.3:
+                    continue
+
+                # Build Detection2D message
+                detection = Detection2D()
+                bbox = BoundingBox2D()
+
+                center_x = float((x1 + x2) / 2.0)
+                center_y = float((y1 + y2) / 2.0)
+
+                bbox.center.position.x = center_x
+                bbox.center.position.y = center_y
+                bbox.size_x = float(width)
+                bbox.size_y = float(height)
+                detection.bbox = bbox
+
+                # Map class index to label
+                cls = int(box.cls[0].cpu().numpy())
+                classification = self.label_map.get(cls, str(cls))
+                confidence = float(box.conf[0].cpu().numpy())
+
+                # Attach classification hypothesis
+                hypothesis = ObjectHypothesisWithPose()
+                hypothesis.hypothesis.class_id = classification
+                hypothesis.hypothesis.score = confidence
+                detection.results.append(hypothesis)
+                detection_array_msg.detections.append(detection)
+
+                # Log the first valid detection per frame
+                if len(detection_array_msg.detections) == 1:
+                    self.get_logger().info(
+                        f"VALID OBJECT FOUND: {classification} ({confidence:.2f})"
                     )
 
-                    width = x2 - x1
-                    height = y2 - y1
+                # Draw bounding box on frame
+                cv2.rectangle(
+                    self.frame,
+                    (x1, y1),
+                    (x2, y2),
+                    (0, 255, 0),
+                    2
+                )
 
-                    # optional filtering
-                    if width * height < self.min_box_area:
-                        continue
+                # Overlay class label and confidence
+                cv2.putText(
+                    self.frame,
+                    f"{classification}: {confidence:.2f}",
+                    (x1, y1 - 10),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    0.6,
+                    (0, 255, 0),
+                    2
+                )
 
-                    detection = Detection2D()
+        # Publish filtered detections
+        self.detection_pub.publish(detection_array_msg)
 
-                    bbox = BoundingBox2D()
+        # Convert annotated frame to ROS image and publish
+        detection_img_msg = self.bridge.cv2_to_imgmsg(
+            self.frame,
+            encoding="bgr8"
+        )
+        detection_img_msg.header.stamp = time_now
+        detection_img_msg.header.frame_id = "camera_link"
+        self.image_pub.publish(detection_img_msg)
 
-                    center_x = float((x1 + x2) / 2.0)
-                    center_y = float((y1 + y2) / 2.0)
-
-                    bbox.center.position.x = center_x
-                    bbox.center.position.y = center_y
-
-                    bbox.size_x = float(width)
-                    bbox.size_y = float(height)
-
-                    detection.bbox = bbox
-
-                    cls = int(box.cls[0].cpu().numpy())
-
-                    classification = self.label_map.get(
-                        cls,
-                        str(cls)
-                    )
-
-                    confidence = float(
-                        box.conf[0].cpu().numpy()
-                    )
-
-                    hypothesis = ObjectHypothesisWithPose()
-
-                    hypothesis.hypothesis.class_id = classification
-                    hypothesis.hypothesis.score = confidence
-
-                    detection.results.append(hypothesis)
-
-                    detection_array_msg.detections.append(detection)
-
-                    cv2.rectangle(
-                        self.frame,
-                        (x1, y1),
-                        (x2, y2),
-                        (0, 255, 0),
-                        2
-                    )
-
-                    cv2.putText(
-                        self.frame,
-                        f"{classification}: {confidence:.2f}",
-                        (x1, y1 - 10),
-                        cv2.FONT_HERSHEY_SIMPLEX,
-                        0.6,
-                        (0, 255, 0),
-                        2
-                    )
-
-            #publish all detections while not in searching mode
-            self.detection_pub.publish(detection_array_msg)
-
-            detection_img_msg = self.bridge.cv2_to_imgmsg(
-                self.frame,
-                encoding="bgr8"
-            )
-
-            detection_img_msg.header.stamp = time_now
-            detection_img_msg.header.frame_id = "camera_link" #publish an image
-
-            self.image_pub.publish(detection_img_msg)
-            self.taking_picture = False
+        # Reset flag — one-shot per trigger
+        self.taking_picture = False
 
     def master_status_callback(self, msg: String):
         self.last_master_status = getattr(self, 'master_status', None)
@@ -191,7 +247,6 @@ class DepthAICameraNode(Node):
 
         self.robot_x = msg.pose.pose.position.x
         self.robot_y = msg.pose.pose.position.y
-
 
         q = msg.pose.pose.orientation
         siny_cosp = 2.0 * (q.w * q.z + q.x * q.y)
@@ -333,7 +388,6 @@ class DepthAICameraNode(Node):
     #                     'center_x': center_x,
     #                     'area': area
     #                 }
-
     #     cmd = Twist()
 
     #     if best_detection is None:
@@ -362,7 +416,6 @@ class DepthAICameraNode(Node):
     #     y1 = best_detection['y1']
     #     x2 = best_detection['x2']
     #     y2 = best_detection['y2']
-
     #     #draw bounding box
     #     cv2.rectangle(currFrame, (x1, y1), (x2, y2), (0, 255, 0), 2)
 
@@ -380,7 +433,6 @@ class DepthAICameraNode(Node):
     #         (0, 255, 0),
     #         2,
     #     )
-
     #     if self.target_locked_frames >= self.required_locked_frames:
 
     #         stop_cmd = Twist()

@@ -3,12 +3,11 @@ from rclpy.node import Node
 import time
 from datetime import datetime
 import subprocess
-
 from sensor_msgs.msg import LaserScan
 from std_msgs.msg import Bool, String
 
-
 class EstopNode(Node):
+
     def __init__(self):
         super().__init__('estop_node')
 
@@ -20,14 +19,15 @@ class EstopNode(Node):
 
         # Parameters
         self.distance_threshold = 1.0
-        self.required_hits = 5 # might be too small lidar 10Hz
+        self.required_hits = 5
 
         # State variables
         self.consecutive_hits = 0
         self.estop_active = False
         self.bag_recorded = False
 
-        self.get_logger().info('E-Stop node started') #logger info
+        self.get_logger().info('E-Stop node started')
+
     def publish_estop_state(self):
 
         msg = Bool()
@@ -81,6 +81,8 @@ class EstopNode(Node):
                 time.sleep(5)
 
                 self.bag_process.terminate()
+
+
     def status_callback(self, msg: String):
 
         status = msg.data.lower().strip()
@@ -94,6 +96,8 @@ class EstopNode(Node):
 
             self.estop_pub.publish(estop_msg)
             self.get_logger().info('E-STOP CLEARED')
+
+
 def main(args=None):
 
     rclpy.init(args=args)
@@ -106,5 +110,7 @@ def main(args=None):
 
     node.destroy_node()
     rclpy.shutdown()
+
+
 if __name__ == '__main__':
     main()
