@@ -116,16 +116,28 @@ class DepthAICameraNode(Node):
                     if width * height < self.min_box_area:
                         continue
 
-                    # --- hue-based color classification ---
+                   # --- hue-based color classification ---
                     roi_hsv = hsv_frame[y1:y2, x1:x2]
 
                     if roi_hsv.size > 0:
-                        hue_channel = roi_hsv[:, :, 0]  # H is 0-179 in OpenCV
-                        sat_channel = roi_hsv[:, :, 1]
+                        # take the center pixel of the bounding box
+                        mid_y = roi_hsv.shape[0] // 2
+                        mid_x = roi_hsv.shape[1] // 2
+                        center_hue = int(roi_hsv[mid_y, mid_x, 0])
+                        center_sat = int(roi_hsv[mid_y, mid_x, 1])
 
-                        # mask out low-saturation pixels (grays/whites/blacks)
-                        sat_mask = sat_channel > 50
-
+                        if center_sat > 50:
+                            if center_hue < 10 or center_hue > 160:
+                                detected_color = "red"
+                            elif 15 <= center_hue <= 35:
+                                detected_color = "yellow"
+                            else:
+                                detected_color = "unknown"
+                        else:
+                            detected_color = "unknown"
+                    else:
+                        detected_color = "unknown"
+                        # --- end color classification ---
                         if sat_mask.any():
                             hues = hue_channel[sat_mask]
 
