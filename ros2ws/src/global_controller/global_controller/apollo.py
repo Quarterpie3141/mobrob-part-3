@@ -22,7 +22,7 @@ import numpy as np
 import math
 import json
 
- HARDCODED_WAYPOINTS: List[Tuple[float, float, float]] = [
+HARDCODED_WAYPOINTS: List[Tuple[float, float, float]] = [
      (4.0, 0.0, 0.0), 
      (8.0, 0.0, 3.141), 
      (0.0, 0.0, 3.141),
