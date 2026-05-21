@@ -352,6 +352,21 @@ class GlobalControllerNode(Node):
         parsed = json.loads(msg.data) # just to validate it's proper json, will throw if not
         waypoint_list = [(wp[0], wp[1], wp[2]) for wp in parsed]
 
+        #waypoint add 1 to distance so is closer to the bins
+        new_waypoint_list = []
+        for i, wp in enumerate(waypoint_list):
+            self._publish_status_log(
+                "FOR TESTING ORIGINAL" + str(wp)
+                )
+            angle_calc = round(math.atan2(wp[1], wp[0]),2)
+            new_x = round(wp[0] + 1.0 * math.cos(angle_calc),2)
+            new_y = round(wp[1] + 1.0 * math.sin(angle_calc),2)
+            new_waypoint_list.append((new_x, new_y, wp[2]))
+            self._publish_status_log(
+                "FOR TESTING LATEST" + str(new_waypoint_list[i])
+            )
+
+        waypoint_list = new_waypoint_list
 
         def dist(a, b):
             return math.sqrt((a[0] - b[0])**2 + (a[1] - b[1])**2)
