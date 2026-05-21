@@ -93,6 +93,13 @@ class WebGuiNode(Node):
             10
         )
 
+        self.estop_subscription = self.create_subscription(
+            Bool,
+            '/estop_button',
+            self.estop_callback,
+            10
+        )
+
         #these are the images for letter and object det
         self.letter_detection_image = self.create_subscription(Image, 'classified_poi/image', self.letter_detection_image_callback, 10)
         
@@ -118,6 +125,7 @@ class WebGuiNode(Node):
         self.object_images = {}      # label -> b64 jpeg
         self.last_object_labels = []
         self.current_pose = {'x': 0.0, 'y': 0.0, 'theta': 0.0}
+        self.estopped = False
 
         # All available Greek-letter waypoints
         self.waypoints = [
@@ -268,6 +276,12 @@ class WebGuiNode(Node):
             pass
 
         self.log_to_web(message, level)
+
+    def estop_callback(self, msg):
+        self.estopped = msg.data
+        if self.estopped:
+            socketio.emit('estop_state', {'estopped': True})
+            self.log_to_web('Emergency stop activated', 'error')
 
     def set_phase(self, phase):
         if phase not in (1, 2):

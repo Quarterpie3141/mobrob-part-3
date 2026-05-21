@@ -669,5 +669,109 @@ function drawMinimap() {
   }
 }
 
+// E-Stop 
+let estopActive = false;
+let estopTimestamp = null;
+
+const estopBanner    = document.getElementById('estop-banner');
+const estopViewBtn   = document.getElementById('estop-view-btn');
+const estopSaveBtn   = document.getElementById('estop-save-btn');
+const estopDismissBtn= document.getElementById('estop-dismiss-btn');
+
+socket.on('estop_state', (data) => {
+  if (data.estopped) {
+    estopActive = true;
+    estopTimestamp = Date.now();
+    estopBanner.classList.remove('hidden');
+    addLog('EMERGENCY STOP triggered', 'error');
+  } else {
+    estopActive = false;
+    estopBanner.classList.add('hidden');
+    addLog('E-Stop cleared', 'success');
+  }
+});
+
+// Helper: find the history index closest to a target time
+function findHistoryIndexAt(targetTime) {
+  if (history.length === 0) return -1;
+  // Linear scan is fine for 50k entries; binary search if you care
+  let bestIdx = 0;
+  let bestDiff = Infinity;
+  for (let i = 0; i < history.length; i++) {
+    const diff = Math.abs(history[i].t - targetTime);
+    if (diff < bestDiff) { bestDiff = diff; bestIdx = i; }
+    else if (history[i].t > targetTime) break;
+  }
+  return bestIdx;
+}
+
+// "View 5s ago" — jump replay to that point
+estopViewBtn.addEventListener('click', () => {
+  const target = (estopTimestamp || Date.now()) - 5000;
+  const idx = findHistoryIndexAt(target);
+  if (idx < 0) {
+    addLog('No history available to view', 'warning');
+    return;
+  }
+  if (!replayMode) enterReplay();
+  replayIndex = idx;
+  scrub.value = idx;
+  posLabel.textContent = `${idx} / ${history.length - 1}`;
+  rebuildStateUpTo(idx);
+  addLog(`Jumped to ${((Date.now() - history[idx].t) / 1000).toFixed(1)}s ago`, 'info');
+});
+
+// Save a JSON snapshot of the incident
+estopSaveBtn.addEventListener('click', () => {
+  const triggerTime = estopTimestamp || Date.now();
+  const windowStart = triggerTime - 30_000;   // 30s before trigger
+  const windowEnd   = triggerTime + 5_000;    // a little after, just in case
+
+  const snapshot = {
+    incident: {
+      triggered_at: new Date(triggerTime).toISOString(),
+      saved_at: new Date().toISOString(),
+      window_start: new Date(windowStart).toISOString(),
+      window_end: new Date(windowEnd).toISOString(),
+    },
+    final_state: {
+      robotPose,
+      currentGoal,
+      pois,
+      classifiedPois,
+      objectPois,
+      trail: trail.slice(),
+    },
+    costmap_meta: costmap ? {
+      width: costmap.width,
+      height: costmap.height,
+      resolution: costmap.resolution,
+      origin_x: costmap.origin_x,
+      origin_y: costmap.origin_y,
+    } : null,
+    history: history.filter(ev => ev.t >= windowStart && ev.t <= windowEnd),
+    poi_labels: Object.keys(poiImages),
+    object_labels: Object.keys(objectImages),
+  };
+
+  const blob = new Blob([JSON.stringify(snapshot, null, 2)],
+                       { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const stamp = new Date(triggerTime).toISOString().replace(/[:.]/g, '-');
+  a.href = url;
+  a.download = `estop-snapshot-${stamp}.json`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+
+  addLog('E-Stop snapshot saved', 'success');
+});
+
+estopDismissBtn.addEventListener('click', () => {
+  estopBanner.classList.add('hidden');
+});
+
 drawMinimap();
 renderWaypoints();

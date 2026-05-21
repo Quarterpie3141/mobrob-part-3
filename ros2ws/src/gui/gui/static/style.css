@@ -500,3 +500,41 @@ footer#controls {
   background: transparent; color: #eee; border: none;
   font-size: 18px; cursor: pointer;
 }
+
+#estop-banner.hidden { display: none; }
+#estop-banner {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  background: #b00020;
+  color: #fff;
+  z-index: 2000;
+  padding: 12px 20px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.5);
+  animation: estop-flash 1s infinite alternate;
+  font-family: monospace;
+  font-weight: bold;
+}
+.estop-content {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+.estop-icon { font-size: 24px; }
+.estop-text { flex: 1; font-size: 16px; letter-spacing: 1px; }
+#estop-banner button {
+  background: #fff;
+  color: #b00020;
+  border: none;
+  padding: 6px 14px;
+  font-weight: bold;
+  cursor: pointer;
+  border-radius: 3px;
+  font-family: monospace;
+}
+#estop-banner button:hover { background: #ffd0d0; }
+@keyframes estop-flash {
+  from { background: #b00020; }
+  to   { background: #e63946; }
+}

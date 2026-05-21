@@ -93,6 +93,15 @@
       <p id="modal-coords"></p>
     </div>
   </div>
+  <div id="estop-banner" class="hidden">
+    <div class="estop-content">
+      <span class="estop-icon">⚠</span>
+      <span class="estop-text">EMERGENCY STOP TRIGGERED</span>
+      <button id="estop-view-btn">View 5s Ago</button>
+      <button id="estop-save-btn">Save Snapshot</button>
+      <button id="estop-dismiss-btn">Dismiss</button>
+    </div>
+  </div>
 
   <script src="{{ url_for('static', filename='script.js') }}"></script>
 </body>

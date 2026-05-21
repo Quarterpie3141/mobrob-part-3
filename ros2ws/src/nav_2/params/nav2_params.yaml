@@ -26,7 +26,7 @@ controller_server:
     goal_checker:
       plugin: nav2_controller::SimpleGoalChecker
       xy_goal_tolerance: 0.3
-      yaw_goal_tolerance: 0.25
+      yaw_goal_tolerance: 0.15
       stateful: true
     FollowPath:
       plugin: nav2_mppi_controller::MPPIController
@@ -292,5 +292,5 @@ lifecycle_manager_navigation:
       - planner_server
       - behavior_server
       - smoother_server
-      - bt_navigator      # <-- Ensure this matches the node name
-      - waypoint_follower # <-- Add this if you are using it
+      - bt_navigator     
+      - waypoint_follower
