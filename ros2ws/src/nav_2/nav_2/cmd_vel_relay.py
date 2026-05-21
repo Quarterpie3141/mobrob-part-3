@@ -9,12 +9,7 @@ class CmdVelRelay(Node):
     def __init__(self):
         super().__init__('cmd_vel_relay')
         
-        # Subscriber: Listens to the output of the smoother
-        self.subscription = self.create_subscription(
-            Twist,
-            'cmd_vel_smoothed',
-            self.listener_callback,
-            10)
+
         self.current_joy = None
         self.joy_subscription = self.create_subscription(Joy, '/joy', self.joy_callback, 10)
 
@@ -49,8 +44,6 @@ class CmdVelRelay(Node):
         self.estopped = msg.data
 
     def listener_callback(self, msg):
-
-        self.publisher_.publish(msg)
         self.get_logger().info(f'Relaying: Linear X: {msg.linear.x:.2f}, Angular Z: {msg.angular.z:.2f}')
 
 
