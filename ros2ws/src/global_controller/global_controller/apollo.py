@@ -101,7 +101,9 @@ class GlobalControllerNode(Node):
         self.start_letter_detection_pub = self.create_publisher(String, '/check_label', 10)
         self.letter_detection_sub = self.create_subscription(String, '/camera/letter_detection', self.letter_detection_callback, 10)
         self.last_detected_letter = None
+        self.classifying_letter = False
 
+        
         #object detection signal publisher
         self.start_object_detection_pub = self.create_publisher(String, '/check_object', 10)
         self.object_detection_sub = self.create_subscription(Detection2DArray, '/camera/detections', self.object_detection_callback, 10)
@@ -127,7 +129,11 @@ class GlobalControllerNode(Node):
                 f"Classified object as {msg.detections[0].results[0].hypothesis.class_id}."
             )
             if msg.detections[0].results[0].hypothesis.class_id == 'red trashcan' or msg.detections[0].results[0].hypothesis.class_id == 'yellow trashcan':
+                self.classifying_letter = True
                 self.start_letter_detection_pub.publish(String(data="classify"))
+                # When starting classification:
+                self._letter_timeout_timer = self.create_timer(10.0, self._on_letter_timeout)
+
                 self.get_logger().info('Trashcan detected: Starting letter classification')
                 self._publish_status_log(f"Classified object as {msg.detections[0].results[0].hypothesis.class_id} Starting Letter Classification.")
             else:
@@ -140,11 +146,20 @@ class GlobalControllerNode(Node):
             self._send_nav2_goal()
 
     def letter_detection_callback(self, msg: String) -> None:
+        if not self.classifying_letter:
+            return
         self.last_detected_letter = msg.data
         if msg.data in ("nothing detected", "confidence too low", "no frame available"):
             self.start_letter_detection_pub.publish(String(data="classify"))
             return
         else:
+           
+            self.classifying_letter = False
+            #kill timeout timer
+            if self._letter_timeout_timer:
+                self._letter_timeout_timer.cancel()
+                self._letter_timeout_timer = None
+
             x = self._waypoints[self._current_waypoint_index-1 ][0]
             y = self._waypoints[self._current_waypoint_index-1][1]
             phi =  self._waypoints[self._current_waypoint_index-1 ][2]
@@ -195,6 +210,16 @@ class GlobalControllerNode(Node):
         self._publish_state()
         self._log_status_heartbeat()
         self._publish_waypoints()
+
+
+    # Timeout handler for letter classification.
+    def _on_letter_timeout(self):
+        self.classifying_letter = False
+        self._letter_timeout_timer.cancel()
+        self._letter_timeout_timer = None
+        self.get_logger().warn('Letter classification timed out, moving on.')
+        self._send_nav2_goal()
+
 
     def _publish_waypoints(self) -> None: # publishes classified waypoints every second
         
