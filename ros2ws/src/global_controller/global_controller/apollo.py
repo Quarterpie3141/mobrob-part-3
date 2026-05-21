@@ -23,8 +23,9 @@ import math
 import json
 
 HARDCODED_WAYPOINTS: List[Tuple[float, float, float]] = [
-    (4.0, 0.0, 3.141), 
-    (0.0, 0.0, 3.141), 
+    (4.0, 0.0, 0.0), 
+    (8.0, 0.0, 3.141), 
+    (0.0, 0.0, 3.141),
     (-4.0, 0.0, 0.0), 
     (0.0, 0.0, 0.0)
 ]
@@ -431,7 +432,7 @@ class GlobalControllerNode(Node):
                 cy_m = centroids[i][1] * res + costmap.info.origin.position.y
 
             
-                if (cx_m < 8 and cx_m > -8) and (cy_m < 5 and cy_m > -8) and math.sqrt(cx_m**2 + cy_m**2) < 11.0:                    
+                if (cx_m < 10 and cx_m > -6) and (cy_m < 4 and cy_m > -8) and math.sqrt(cx_m**2 + cy_m**2) < 11.0:                    
                     if len(object_positions) == 0:
                         object_positions.append((cx_m, cy_m, 0.0))
                     else: 
