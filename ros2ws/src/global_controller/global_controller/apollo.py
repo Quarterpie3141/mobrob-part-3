@@ -295,12 +295,17 @@ class GlobalControllerNode(Node):
                             "Going to POI P" + str(self._current_waypoint_index - len(HARDCODED_WAYPOINTS))
                         )
                         self._send_nav2_goal()
-                    elif self._current_waypoint_index > len(HARDCODED_WAYPOINTS):
+                    elif self._current_waypoint_index > len(HARDCODED_WAYPOINTS) and (self._current_waypoint_index < len(self._waypoints)-1):
 
                         self._publish_status_log(
                         "Starting Classification at: P" + str(self._current_waypoint_index - len(HARDCODED_WAYPOINTS))
                         )
                         self.start_object_detection_pub.publish(String(data="classify"))
+                    elif self._current_waypoint_index == len(self._waypoints)-1:
+                        self._publish_status_log(
+                            "Returning Home..."
+                        )
+                        self._send_nav2_goal()
 
 
             elif status == GoalStatus.STATUS_ABORTED: 
@@ -469,6 +474,7 @@ class GlobalControllerNode(Node):
             new_x = round(i[0] - 2.0 * math.cos(angle_calc),2)
             new_y = round(i[1] - 2.0 * math.sin(angle_calc),2)
             self._waypoints.append((new_x, new_y, angle_calc))
+        self._waypoints.append((0.0, 0.0, 0.0)) # add home position as final waypoint after all objects isolated
         self._publish_status_log(
             "Objects Isolated Complete"
         )
