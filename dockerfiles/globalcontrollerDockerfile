@@ -50,6 +50,6 @@ WORKDIR /opt/ros2ws
 # 2. Copy the specific package source code from your computer into the container
 COPY ros2ws/src/global_controller ./src/global_controller
 
-# 3. Build the package during the Docker image creation
+# 3. Build the package durig the Docker image creation
 RUN /bin/bash -c "source /opt/ros/jazzy/setup.bash && colcon build --packages-select global_controller"
 ENV PYTHONUNBUFFERED=1

@@ -20,7 +20,7 @@ setup(
     install_requires=['setuptools'],
     zip_safe=True,
     maintainer='Luisa',
-    maintainer_email='itzmehahaha04@gmail.com',
+    maintainer_email='luipulaus.02@gmail.com',
     description='TODO: Package description',
     license='Apache-2.0',
     extras_require={

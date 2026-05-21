@@ -176,4 +176,18 @@ services:
     privileged: true
     volumes:
       - /dev:/dev  
+
+  mobrob_estop:
+    build:
+      context: .
+      dockerfile: dockerfiles/estopDockerfile
+    pull_policy: build
+    network_mode: host
+    stdin_open: true
+    tty: true
+    privileged: true
+    volumes:
+      - /dev:/dev
+      - /home/team8/Documents/estop_bags:/opt/ros2ws/img
+ 
  

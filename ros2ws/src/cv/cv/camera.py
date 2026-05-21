@@ -73,7 +73,7 @@ class DepthAICameraNode(Node):
 
             self.framecount += 1
 
-            # only process every 3rd frame
+            # only process every 3rd frame 10fps
             if self.framecount % 3 != 0:
                 return
 
@@ -178,7 +178,7 @@ class DepthAICameraNode(Node):
             )
 
             detection_img_msg.header.stamp = time_now
-            detection_img_msg.header.frame_id = "camera_link"
+            detection_img_msg.header.frame_id = "camera_link" #publish an image
 
             self.image_pub.publish(detection_img_msg)
             self.taking_picture = False
