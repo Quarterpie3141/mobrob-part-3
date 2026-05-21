@@ -158,6 +158,120 @@ h3::before { content: '## '; }
 }
 #clear-log:hover { background: #fff; color: #000; }
 
+/* ---------- REPLAY CONTROLS ---------- */
+#replay-controls {
+  background: #000;
+  border: 2px solid #fff;
+  border-top: none;
+  padding: 10px 16px;
+  display: grid;
+  grid-template-columns: auto auto 1fr auto;
+  align-items: center;
+  gap: 10px;
+}
+
+.replay-title {
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  white-space: nowrap;
+}
+.replay-title::before { content: '// '; }
+
+.replay-action-group {
+  display: inline-flex;
+}
+
+#replay-toggle,
+#replay-play,
+#replay-speed {
+  background: #000;
+  color: #fff;
+  border: 2px solid #fff;
+  font-family: inherit;
+  font-weight: 700;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  height: 34px;
+  cursor: pointer;
+}
+
+#replay-toggle { padding: 0 14px; }
+#replay-play {
+  width: 42px;
+  border-left: none;
+}
+
+#replay-speed {
+  padding: 0 10px;
+  min-width: 70px;
+}
+
+#replay-toggle:hover,
+#replay-play:hover,
+#replay-speed:hover {
+  background: #fff;
+  color: #000;
+}
+
+.replay-timeline {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+#replay-scrub {
+  width: 100%;
+  accent-color: #fff;
+  cursor: pointer;
+}
+
+#replay-pos {
+  min-width: 70px;
+  text-align: right;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 1px;
+}
+
+#replay-toggle.paused {
+  background: #fff;
+  color: #000;
+}
+
+@media (max-width: 980px) {
+  #replay-controls {
+    grid-template-columns: 1fr;
+    gap: 8px;
+    padding: 12px;
+  }
+
+  .replay-action-group {
+    display: grid;
+    grid-template-columns: 1fr auto;
+  }
+
+  #replay-play { border-left: 2px solid #fff; }
+
+  .replay-timeline {
+    grid-template-columns: 1fr;
+    gap: 4px;
+  }
+
+  #replay-pos {
+    min-width: 0;
+    text-align: left;
+  }
+
+  #replay-speed {
+    width: 100%;
+  }
+}
+
 /* ---------- CONTROLS FOOTER ---------- */
 footer#controls {
   background: #000;

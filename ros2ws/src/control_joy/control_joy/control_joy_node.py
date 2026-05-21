@@ -5,6 +5,7 @@ from geometry_msgs.msg import Twist
 from rclpy.node import Node
 import rclpy
 from sensor_msgs.msg import Joy
+from std_msgs.msg import Bool
 from std_msgs.msg import String
 
 
@@ -39,6 +40,7 @@ class ControlJoyNode(Node):
         self.create_subscription(Joy, "/joy", self._joy_callback, 10)
         self.create_subscription(String, "/master/status", self._master_status_callback, 10)
 
+        self.estop_publisher= self.create_publisher(Bool, "/estop_button", 10)
         self._was_active = False
         self._master_state = ControllerState.WAITING.value
 
@@ -54,6 +56,9 @@ class ControlJoyNode(Node):
             self.slave_status_pub.publish(String(data='waiting'))
         elif msg.buttons[0] == 1:
             self.slave_status_pub.publish(String(data='transition'))
+        elif msg.buttons[3] == 1:
+            self.estop_publisher.publish(Bool(data=True))    
+
             
         else:
             is_active = (msg.buttons[9] == 1 and msg.buttons[10] == 1)

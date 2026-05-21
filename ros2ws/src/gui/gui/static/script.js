@@ -4,6 +4,11 @@ const statusEl = document.getElementById('connection-status');
 const logEl = document.getElementById('status-log');
 const canvas = document.getElementById('minimap');
 const ctx = canvas.getContext('2d');
+const scrub      = document.getElementById('replay-scrub');
+const posLabel   = document.getElementById('replay-pos');
+const toggleBtn  = document.getElementById('replay-toggle');
+const playBtn    = document.getElementById('replay-play');
+const speedSel   = document.getElementById('replay-speed');
 
 let robotPose = { x: 0, y: 0, theta: 0 };
 let currentGoal = null;
@@ -13,6 +18,25 @@ let objectPois = [];          // Array of { x, y, phi, label }  -- objects
 const poiImages = {};         // letter label -> base64 jpeg
 const objectImages = {};      // object label -> base64 jpeg
 let costmap = null;
+
+
+// replayability stuff
+const history = [];                 // { t, type, data }
+const MAX_HISTORY = 50000;
+let recording = true;
+let replayMode = false;
+let replayIndex = 0;                // current event index in history
+let replayTimer = null;
+let replaySpeed = 1.0;
+
+const live = {
+  robotPose: { x: 0, y: 0, theta: 0 },
+  currentGoal: null,
+  pois: [],
+  classifiedPois: [],
+  objectPois: [],
+  trail: [],
+};
 
 const SCALE = 20;
 const trail = [];
@@ -61,42 +85,39 @@ socket.on('pause_state', (data) => {
 });
 
 socket.on('nav2_goal', (data) => {
+  record('nav2_goal', data);
+  if (replayMode) return;
   currentGoal = data;
   drawMinimap();
 });
 
 socket.on('poi_update', (data) => {
   try {
-    const fixed = data.poi.replace(/'/g, '"');
-    pois = JSON.parse(fixed);
+    const parsed = JSON.parse(data.poi.replace(/'/g, '"'));
+    record('poi_update', parsed);
+    if (replayMode) return;
+    pois = parsed;
     addLog(`POIs updated: ${pois.length} object(s) detected`, 'info');
     drawMinimap();
-  } catch (e) {
-    console.error('Failed to parse POIs:', e);
-  }
+  } catch (e) { console.error('Failed to parse POIs:', e); }
 });
 
 socket.on('robot_pose', (data) => {
-  robotPose = data;
-  document.getElementById('pose-x').textContent = data.x.toFixed(2);
-  document.getElementById('pose-y').textContent = data.y.toFixed(2);
-  document.getElementById('pose-theta').textContent = data.theta.toFixed(2);
-  trail.push({ x: data.x, y: data.y });
-  if (trail.length > MAX_TRAIL) trail.shift();
-  drawMinimap();
+  record('robot_pose', data);
+  if (replayMode) return;          // ignore live updates while replay
+  applyRobotPose(data);
 });
 
 socket.on('classified_poi_update', (data) => {
   try {
-    const fixed = data.classified_poi.replace(/'/g, '"');
-    classifiedPois = JSON.parse(fixed);
-    addLog(`Classified POIs updated: ${classifiedPois.length} object(s) classified`, 'info');
+    const parsed = JSON.parse(data.classified_poi.replace(/'/g, '"'));
+    record('classified_poi_update', parsed);
+    if (replayMode) return;
+    classifiedPois = parsed;
+    addLog(`Classified POIs updated: ${classifiedPois.length} object(s)`, 'info');
     drawMinimap();
-  } catch (e) {
-    console.error('Failed to parse classified POIs:', e);
-  }
+  } catch (e) { console.error('Failed to parse classified POIs:', e); }
 });
-
 socket.on('poi_image', (data) => {
   poiImages[data.label] = data.image;
 });
@@ -104,20 +125,20 @@ socket.on('poi_image', (data) => {
 // Object detections
 socket.on('object_poi_update', (data) => {
   try {
-    const fixed = data.object_poi.replace(/'/g, '"');
-    objectPois = JSON.parse(fixed);
-    addLog(`Object detections updated: ${objectPois.length} object(s)`, 'info');
+    const parsed = JSON.parse(data.object_poi.replace(/'/g, '"'));
+    record('object_poi_update', parsed);
+    if (replayMode) return;
+    objectPois = parsed;
+    addLog(`Object detections updated: ${objectPois.length}`, 'info');
     drawMinimap();
-  } catch (e) {
-    console.error('Failed to parse object POIs:', e);
-  }
+  } catch (e) { console.error('Failed to parse object POIs:', e); }
 });
 
 socket.on('object_image', (data) => {
   objectImages[data.label] = data.image;
 });
 
-// ---------- Phase Switch ----------
+//  Phase Switch 
 document.querySelectorAll('.phase-btn').forEach((btn) => {
   btn.addEventListener('click', () => {
     const phase = parseInt(btn.dataset.phase, 10);
@@ -139,13 +160,158 @@ function setPhase(phase, emit) {
   }
 }
 
-// ---------- Pause ----------
+//  Pause 
 const pauseBtn = document.getElementById('pause-btn');
 pauseBtn.addEventListener('click', () => {
   socket.emit('toggle_pause');
 });
 
-// ---------- Hover / Click on minimap POIs ----------
+// replayability 
+function record(type, data) {
+  if (!recording || replayMode) return;
+  history.push({ t: Date.now(), type, data });
+  if (history.length > MAX_HISTORY) history.shift();
+  updateScrubberMax();
+}
+
+function applyRobotPose(data) {
+  robotPose = data;
+  document.getElementById('pose-x').textContent = data.x.toFixed(2);
+  document.getElementById('pose-y').textContent = data.y.toFixed(2);
+  document.getElementById('pose-theta').textContent = data.theta.toFixed(2);
+  trail.push({ x: data.x, y: data.y });
+  if (trail.length > MAX_TRAIL) trail.shift();
+  drawMinimap();
+}
+
+function rebuildStateUpTo(idx) {
+  // Reset
+  robotPose = { x: 0, y: 0, theta: 0 };
+  currentGoal = null;
+  pois = [];
+  classifiedPois = [];
+  objectPois = [];
+  trail.length = 0;
+
+  for (let i = 0; i <= idx && i < history.length; i++) {
+    const ev = history[i];
+    switch (ev.type) {
+      case 'robot_pose':
+        robotPose = ev.data;
+        trail.push({ x: ev.data.x, y: ev.data.y });
+        if (trail.length > MAX_TRAIL) trail.shift();
+        break;
+      case 'nav2_goal':           currentGoal = ev.data; break;
+      case 'poi_update':          pois = ev.data; break;
+      case 'classified_poi_update': classifiedPois = ev.data; break;
+      case 'object_poi_update':   objectPois = ev.data; break;
+    }
+  }
+
+  // Reflect in UI
+  document.getElementById('pose-x').textContent = robotPose.x.toFixed(2);
+  document.getElementById('pose-y').textContent = robotPose.y.toFixed(2);
+  document.getElementById('pose-theta').textContent = robotPose.theta.toFixed(2);
+  drawMinimap();
+}
+
+function updateScrubberMax() {
+  scrub.max = Math.max(0, history.length - 1);
+  if (!replayMode) {
+    posLabel.textContent = `live (${history.length})`;
+  }
+}
+
+toggleBtn.addEventListener('click', () => {
+  if (!replayMode) enterReplay(); else exitReplay();
+});
+
+function enterReplay() {
+  if (history.length === 0) {
+    addLog('No history to replay yet', 'warning');
+    return;
+  }
+  // Snapshot live state
+  live.robotPose = { ...robotPose };
+  live.currentGoal = currentGoal ? { ...currentGoal } : null;
+  live.pois = pois.slice();
+  live.classifiedPois = classifiedPois.slice();
+  live.objectPois = objectPois.slice();
+  live.trail = trail.slice();
+
+  replayMode = true;
+  replayIndex = history.length - 1;
+  scrub.value = replayIndex;
+  toggleBtn.textContent = '⏏ EXIT REPLAY';
+  toggleBtn.classList.add('paused');
+  rebuildStateUpTo(replayIndex);
+  posLabel.textContent = `${replayIndex} / ${history.length - 1}`;
+  addLog('Entered replay mode', 'info');
+}
+
+function exitReplay() {
+  stopPlayback();
+  replayMode = false;
+  toggleBtn.textContent = '⏮ REPLAY';
+  toggleBtn.classList.remove('paused');
+
+  // Restore live state
+  robotPose = live.robotPose;
+  currentGoal = live.currentGoal;
+  pois = live.pois;
+  classifiedPois = live.classifiedPois;
+  objectPois = live.objectPois;
+  trail.length = 0;
+  live.trail.forEach(p => trail.push(p));
+
+  document.getElementById('pose-x').textContent = robotPose.x.toFixed(2);
+  document.getElementById('pose-y').textContent = robotPose.y.toFixed(2);
+  document.getElementById('pose-theta').textContent = robotPose.theta.toFixed(2);
+  drawMinimap();
+  updateScrubberMax();
+  addLog('Resumed live mode', 'info');
+}
+
+scrub.addEventListener('input', () => {
+  if (!replayMode) return;
+  replayIndex = parseInt(scrub.value, 10);
+  rebuildStateUpTo(replayIndex);
+  posLabel.textContent = `${replayIndex} / ${history.length - 1}`;
+});
+
+speedSel.addEventListener('change', () => {
+  replaySpeed = parseFloat(speedSel.value);
+  if (replayTimer) { stopPlayback(); startPlayback(); }
+});
+
+playBtn.addEventListener('click', () => {
+  if (!replayMode) return;
+  if (replayTimer) stopPlayback();
+  else startPlayback();
+});
+
+function startPlayback() {
+  if (replayIndex >= history.length - 1) replayIndex = 0;
+  playBtn.textContent = '⏸';
+  // Use real timestamps between events for natural pacing
+  const tick = () => {
+    if (replayIndex >= history.length - 1) { stopPlayback(); return; }
+    const dt = history[replayIndex + 1].t - history[replayIndex].t;
+    replayIndex++;
+    scrub.value = replayIndex;
+    posLabel.textContent = `${replayIndex} / ${history.length - 1}`;
+    rebuildStateUpTo(replayIndex);
+    replayTimer = setTimeout(tick, Math.max(10, dt / replaySpeed));
+  };
+  tick();
+}
+
+function stopPlayback() {
+  if (replayTimer) { clearTimeout(replayTimer); replayTimer = null; }
+  playBtn.textContent = '▶';
+}
+
+//  Hover / Click on minimap POIs 
 function poiToCanvas(poi) {
   const { resolution, origin_x, origin_y, width: cw, height: ch } = costmap;
   const ppx = ((poi.x - origin_x) / resolution / cw) * canvas.width;
@@ -408,15 +574,6 @@ function drawMinimap() {
       });
     }
 
-    // letter detections - green triangles
-    classifiedPois.forEach((poi) => {
-      const pCellX = (poi.x - origin_x) / resolution;
-      const pCellY = (poi.y - origin_y) / resolution;
-      const ppx = (pCellX / cw) * w;
-      const ppy = h - (pCellY / ch) * h;
-      drawTriangle(ppx, ppy, '#83ff83', poi.label);
-    });
-
     // object detections - red triangles
     objectPois.forEach((poi) => {
       const pCellX = (poi.x - origin_x) / resolution;
@@ -424,6 +581,15 @@ function drawMinimap() {
       const ppx = (pCellX / cw) * w;
       const ppy = h - (pCellY / ch) * h;
       drawTriangle(ppx, ppy, '#ff6b6b', poi.label);
+    });
+
+    // letter detections - green triangles
+    classifiedPois.forEach((poi) => {
+      const pCellX = (poi.x - origin_x) / resolution;
+      const pCellY = (poi.y - origin_y) / resolution;
+      const ppx = (pCellX / cw) * w;
+      const ppy = h - (pCellY / ch) * h;
+      drawTriangle(ppx, ppy, '#83ff83', poi.label);
     });
 
     // current goal
