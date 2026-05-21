@@ -128,5 +128,22 @@ services:
     volumes:
       - /dev:/dev
 
+  mobrob_moving_objects1:
+    build:
+      context: .
+      dockerfile: dockerfiles/moving_objectsDockerfile
+    pull_policy: build
+    network_mode: host
+    stdin_open: true
+    tty: true
+    privileged: true
+    command: >
+      bash -lc "source /opt/ros/jazzy/setup.bash &&
+                source /opt/ros2ws/install/setup.bash &&
+                ros2 run moving_objects find_moving_objects;
+                sleep infinity"
+    volumes:
+      - /dev:/dev
+
   
  
