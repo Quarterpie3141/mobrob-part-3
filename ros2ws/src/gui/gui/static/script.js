@@ -215,12 +215,6 @@ function rebuildStateUpTo(idx) {
   drawMinimap();
 }
 
-const scrub      = document.getElementById('replay-scrub');
-const posLabel   = document.getElementById('replay-pos');
-const toggleBtn  = document.getElementById('replay-toggle');
-const playBtn    = document.getElementById('replay-play');
-const speedSel   = document.getElementById('replay-speed');
-
 function updateScrubberMax() {
   scrub.max = Math.max(0, history.length - 1);
   if (!replayMode) {
