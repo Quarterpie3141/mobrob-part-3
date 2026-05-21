@@ -12,5 +12,5 @@ slam_toolbox:
     # How far back in time to match scans
     scan_buffer_size: 10
     scan_buffer_maximum_scan_distance: 10.0
-    map_update_interval: 3.0
+    map_update_interval: 1.5
     mode: mapping
