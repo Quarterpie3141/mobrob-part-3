@@ -33,6 +33,8 @@ SHELL ["/bin/bash", "-c"]
 RUN pip install flask flask-socketio eventlet flask-cors opencv-python \ 
     "numpy<2" --break-system-packages --ignore-installed blinker
 
+#RUN pip3 install --break-system-packages "numpy<2"
+
 RUN source /opt/ros/jazzy/setup.bash && colcon build --packages-select gui gui
 
 RUN echo "source /opt/ros2ws/install/setup.bash" >> ~/.bashrc
