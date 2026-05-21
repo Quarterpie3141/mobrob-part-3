@@ -29,6 +29,19 @@
       <button id="clear-log">Clear Log</button>
     </aside>
   </main>
+  <div id="replay-controls">
+    <button id="replay-toggle">⏮ REPLAY</button>
+    <button id="replay-play">▶</button>
+    <input type="range" id="replay-scrub" min="0" max="0" value="0" />
+    <span id="replay-pos">0 / 0</span>
+    <select id="replay-speed">
+      <option value="0.5">0.5×</option>
+      <option value="1" selected>1×</option>
+      <option value="2">2×</option>
+      <option value="4">4×</option>
+      <option value="10">10×</option>
+    </select>
+  </div>
 
   <footer id="controls">
     <div class="phase-switch">
