@@ -129,21 +129,19 @@ class GlobalControllerNode(Node):
                 f"Classified object as {msg.detections[0].results[0].hypothesis.class_id}."
             )
             if msg.detections[0].results[0].hypothesis.class_id == 'red trashcan' or msg.detections[0].results[0].hypothesis.class_id == 'yellow trashcan':
-                self.classifying_letter = True
-                self.start_letter_detection_pub.publish(String(data="classify"))
-                # When starting classification:
-                self._letter_timeout_timer = self.create_timer(10.0, self._on_letter_timeout)
+                # self.classifying_letter = True
+                # self.start_letter_detection_pub.publish(String(data="classify"))
+                # # When starting classification:
+                # self._letter_timeout_timer = self.create_timer(5.0, self._on_letter_timeout)
 
-                self.get_logger().info('Trashcan detected: Starting letter classification')
-                self._publish_status_log(f"Classified object as {msg.detections[0].results[0].hypothesis.class_id} Starting Letter Classification.")
+                self._publish_status_log(f"Classified object as {msg.detections[0].results[0].hypothesis.class_id}")
             else:
-                self.get_logger().info(f"Classified object as {msg.detections[0].results[0].hypothesis.class_id}. Moving to next explore point.")
-                self._publish_status_log(f"Classified object as {msg.detections[0].results[0].hypothesis.class_id} Moving to next waypoint.")
-                self._send_nav2_goal()
+                self.get_logger().info(f"Classified object as {msg.detections[0].results[0].hypothesis.class_id}")
+                self._publish_status_log(f"Classified object as {msg.detections[0].results[0].hypothesis.class_id}")
         
         else:
-            self.get_logger().info('Object detection callback received no detections.')
-            self._send_nav2_goal()
+            self.get_logger().info('Object detection callback received NO detections.')
+  
 
     def letter_detection_callback(self, msg: String) -> None:
         if not self.classifying_letter:
@@ -300,6 +298,12 @@ class GlobalControllerNode(Node):
                         self._publish_status_log(
                         "Starting Classification at: P" + str(self._current_waypoint_index - len(HARDCODED_WAYPOINTS))
                         )
+                        self.classifying_letter = True
+                        self.start_letter_detection_pub.publish(String(data="classify"))
+                        # When starting classification:
+                        self._letter_timeout_timer = self.create_timer(5.0, self._on_letter_timeout)
+
+                        #classify both object and letter at the same time
                         self.start_object_detection_pub.publish(String(data="classify"))
                     elif self._current_waypoint_index == len(self._waypoints)-1:
                         self._publish_status_log(
@@ -340,6 +344,7 @@ class GlobalControllerNode(Node):
     def _transition_to(self, new_state: ControllerState) -> None:
         if self._state == new_state:
             return
+            
         old_state = self._state
         self._state = new_state
         self.get_logger().info(f'State transition: {old_state.value} -> {new_state.value}')
