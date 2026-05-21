@@ -116,50 +116,55 @@ class DepthAICameraNode(Node):
                     if width * height < self.min_box_area:
                         continue
 
+
                    # --- hue-based color classification ---
-                    roi_hsv = hsv_frame[y1:y2, x1:x2]
 
-                    if roi_hsv.size > 0:
-                        # take the center pixel of the bounding box
-                        mid_y = roi_hsv.shape[0] // 2
-                        mid_x = roi_hsv.shape[1] // 2
-                        center_hue = int(roi_hsv[mid_y, mid_x, 0])
-                        center_sat = int(roi_hsv[mid_y, mid_x, 1])
+                    cx = (x1 + x2) // 2
+                    cy = (y1 + y2) // 2
 
-                        if center_sat > 50:
-                            if center_hue < 10 or center_hue > 160:
-                                detected_color = "red"
-                            elif 15 <= center_hue <= 35:
-                                detected_color = "yellow"
-                            else:
-                                detected_color = "unknown"
-                        else:
-                            detected_color = "unknown"
+                    frame_h, frame_w = hsv_frame.shape[:2]
+                    if cx < 10 or cx > frame_w - 10 or cy < 10 or cy > frame_h - 10:
+                        x0 = max(0, x1)
+                        x1_clip = min(frame_w, x2)
+                        y0 = max(0, y1)
+                        y1_clip = min(frame_h, y2)
                     else:
+                        x0 = max(0, cx - 10)
+                        x1_clip = min(frame_w, cx + 10)
+                        y0 = max(0, cy - 10)
+                        y1_clip = min(frame_h, cy + 10)
+
+                    roi_hsv = hsv_frame[y0:y1_clip, x0:x1_clip]
+                    if roi_hsv.size == 0:
                         detected_color = "unknown"
-                        # --- end color classification ---
+                    else:
+                        hue_channel = roi_hsv[:, :, 0]
+                        sat_channel = roi_hsv[:, :, 1]
+
+                        # ignore grey pixels
+                        sat_mask = sat_channel > 50
+
                         if sat_mask.any():
+
                             hues = hue_channel[sat_mask]
 
-                            # red wraps around 0/180, so shift hues into
-                            # a continuous space centered on 90 before averaging
+                            # handle red hue wraparound
                             shifted = (hues.astype(int) + 90) % 180
                             avg_shifted = shifted.mean()
                             avg_hue = (avg_shifted - 90) % 180
+
                         else:
                             avg_hue = hue_channel.mean()
 
-                        # classify: red hue wraps around 0
-                        #   red:    H < 10  or  H > 160
-                        #   yellow: 15 <= H <= 35
+                        # classify hue
                         if avg_hue < 10 or avg_hue > 160:
                             detected_color = "red"
+
                         elif 15 <= avg_hue <= 35:
                             detected_color = "yellow"
+
                         else:
                             detected_color = "unknown"
-                    else:
-                        detected_color = "unknown"
                     # --- end color classification ---
 
                     detection = Detection2D()
