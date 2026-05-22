@@ -18,22 +18,22 @@ class CmdVelRelay(Node):
             'cmd_vel_smoothed', 
             self.listener_callback, 
             10)
-        self.behavior_cmd_vel_subscription = self.create_subscription(
-            Twist,
-            'cmd_vel_behavior_server',
-            self.listener_callback,
-            10)
-        self.controller_cmd_vel_subscription = self.create_subscription(
-            Twist,
-            'cmd_vel_controller_server',
-            self.listener_callback,
-            10)
+        # self.behavior_cmd_vel_subscription = self.create_subscription(
+        #     Twist,
+        #     'cmd_vel_behavior_server',
+        #     self.listener_callback,
+        #     10)
+        # self.controller_cmd_vel_subscription = self.create_subscription(
+        #     Twist,
+        #     'cmd_vel_controller_server',
+        #     self.listener_callback,
+        #     10)
         
 
         # Publisher: Sends it to the final motor command topic
         self.publisher_ = self.create_publisher(Twist, 'cmd_vel', 10)
         
-        self.get_logger().info('CmdVel Relay Node started. Listening to cmd_vel_smoothed...')
+        self.get_logger().info('CmdVel Relay Node started. Listening only to cmd_vel_smoothed.')
 
         self.estop_subscription = self.create_subscription(Bool, '/estop_button', self.estop_callback, 10)
         self.estopped = False
